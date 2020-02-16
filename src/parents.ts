@@ -33,7 +33,7 @@ export class Parents {
         this.parents.add(node);
     }
 
-    public has(node: NonLeafNode){
+    public has(node: NonLeafNode) {
         return this.parents.has(node);
     }
 

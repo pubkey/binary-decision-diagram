@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var util_1 = require("../util");
-function resolveWithMinimalBdd(simpleBdd, fns, input) {
+function resolveWithSimpleBdd(simpleBdd, fns, input) {
     var currentNode = simpleBdd;
     var currentLevel = 0;
     while (true) {
@@ -16,5 +16,5 @@ function resolveWithMinimalBdd(simpleBdd, fns, input) {
         }
     }
 }
-exports.resolveWithMinimalBdd = resolveWithMinimalBdd;
-//# sourceMappingURL=resolve-with-minimal-bdd.js.map
+exports.resolveWithSimpleBdd = resolveWithSimpleBdd;
+//# sourceMappingURL=resolve-with-simple-bdd.js.map

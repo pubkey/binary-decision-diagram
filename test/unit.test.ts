@@ -25,7 +25,7 @@ import { bddToMinimalString } from '../src/minimal-string/bdd-to-minimal-string'
 import {
     minimalStringToSimpleBdd
 } from '../src/minimal-string/minimal-string-to-simple-bdd';
-import { resolveWithMinimalBdd } from '../src/minimal-string/resolve-with-minimal-bdd';
+import { resolveWithSimpleBdd } from '../src/minimal-string/resolve-with-simple-bdd';
 
 describe('bdd.test.ts', () => {
     const UNKNOWN = 20;
@@ -364,7 +364,7 @@ describe('bdd.test.ts', () => {
                 );
             });
         });
-        describe('.resolveWithMinimalBdd()', () => {
+        describe('.resolveWithSimpleBdd()', () => {
             it('should resolve a value', () => {
                 const size = 4;
                 const table = exampleTruthTable(size);
@@ -372,7 +372,7 @@ describe('bdd.test.ts', () => {
                 const str = bddToMinimalString(bdd);
                 const minimalBdd = minimalStringToSimpleBdd(str);
                 const resolvers: ResolverFunctions = getResolverFunctions(size);
-                const result = resolveWithMinimalBdd(
+                const result = resolveWithSimpleBdd(
                     minimalBdd,
                     resolvers,
                     {}
@@ -387,7 +387,7 @@ describe('bdd.test.ts', () => {
                 const minimalBdd = minimalStringToSimpleBdd(str);
                 const resolvers: ResolverFunctions = getResolverFunctions(size);
                 for (const [key, value] of table.entries()) {
-                    const bddValue = resolveWithMinimalBdd(
+                    const bddValue = resolveWithSimpleBdd(
                         minimalBdd,
                         resolvers,
                         key
