@@ -3,7 +3,14 @@
 A library to create, minimize and optimize binary decision diagrams in JavaScript.
 
 
-## createBddFromTruthTable()
+Links:
+
+- [Introduction on BDDs](https://web.archive.org/web/20110304135553/http://configit.com/fileadmin/Configit/Documents/bdd-eap.pdf)
+- [Presentation on BDDs](https://de.slideshare.net/RajeshYadav49/reduced-ordered-binary-decision-diagram-devi)
+- [Implementation of ROBDD](https://pdfs.semanticscholar.org/788d/ed39ca36300753bcb20c43762972b00f9b80.pdf)
+
+
+### createBddFromTruthTable()
 
 Creates a BDD from a truth table.
 The Truth-Table is a `Map<string, number>` where the string is a truth-set like `1101` and the number is the value.
@@ -20,7 +27,7 @@ const bdd = createBddFromTruthTable(
 );
 ```
 
-## minimize()
+### minimize()
 
 Reduces the nodes of a BDD by applying the reduction- and elimination rules.
 
@@ -30,7 +37,7 @@ bdd.minimize(
 );
 ```
 
-## countNodes()
+### countNodes()
 
 Returns the amount of nodes of the BDD.
 
@@ -38,7 +45,7 @@ Returns the amount of nodes of the BDD.
 bdd.countNodes(); // returns a number
 ```
 
-## removeIrrelevantLeafNodes()
+### removeIrrelevantLeafNodes()
 
 Removes all irrelevant leaf-nodes with the given value.
 
@@ -48,7 +55,7 @@ bdd.removeIrrelevantLeafNodes(5);
 ```
 
 
-## resolve()
+### resolve()
 
 Resolves a state by calling the boolean functions through the nodes.
 
@@ -69,7 +76,7 @@ const bddValue = bdd.resolve(
 ); // returns a value from the truth table
 ```
 
-## bddToMinimalString()
+### bddToMinimalString()
 
 Returns a string-representation of the BDD which can be used in the client side to have a small javascript-bundle.
 BDDs can be very big so an effective storage format was needed.
@@ -78,7 +85,7 @@ BDDs can be very big so an effective storage format was needed.
 const minimalString = bddToMinimalString(bdd)
 ```
 
-## minimalStringToSimpleBdd()
+### minimalStringToSimpleBdd()
 
 Parses the minimal string into an `SimpleBdd`. The `SimpleBdd` very small and only can resolve stuff.
 
@@ -86,7 +93,7 @@ Parses the minimal string into an `SimpleBdd`. The `SimpleBdd` very small and on
 const simpleBdd = minimalStringToSimpleBdd(str);
 ```
 
-## resolveWithMinimalBdd()
+### resolveWithMinimalBdd()
 
 Resolves a value with the `SimpleBdd` and the `ResolverFunctions`.
 
@@ -98,7 +105,7 @@ resolveWithSimpleBdd(
 );
 ```
 
-## optimizeBruteForce()
+### optimizeBruteForce()
 
 Optimizes the sorting of the boolean function to get an optimal BDD.
 
@@ -119,9 +126,3 @@ optimizeBruteForce({
     }
 });
 ```
-
-Links:
-
-- (Introduction on BDDs)[https://web.archive.org/web/20110304135553/http://configit.com/fileadmin/Configit/Documents/bdd-eap.pdf]
-- (Presentation on BDDs)[https://de.slideshare.net/RajeshYadav49/reduced-ordered-binary-decision-diagram-devi]
-- (Implementation of ROBDD)[https://pdfs.semanticscholar.org/788d/ed39ca36300753bcb20c43762972b00f9b80.pdf]
