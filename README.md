@@ -10,6 +10,12 @@ Links:
 - [Implementation of ROBDD](https://pdfs.semanticscholar.org/788d/ed39ca36300753bcb20c43762972b00f9b80.pdf)
 
 
+### Installation
+
+```bash
+npm install binary-decision-diagram --save
+```
+
 ### createBddFromTruthTable()
 
 Creates a BDD from a truth table.
