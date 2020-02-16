@@ -107,7 +107,7 @@ resolveWithSimpleBdd(
 
 ### optimizeBruteForce()
 
-Optimizes the sorting of the boolean function to get an optimal BDD.
+Optimizes the sorting of the boolean functions to get an optimal BDD.
 
 ```typescript
 optimizeBruteForce({
