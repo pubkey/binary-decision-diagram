@@ -95,18 +95,23 @@ export type BooleanFunctionReorderMapping = {
     [indexAfter: number]: number; // to indexBefore
 };
 
+export type BooleanFunctionReorderMappingReverse = {
+    [indexBefore: number]: number; // to indexAfter
+};
+
 export function shuffleBooleanOrdering(
     truthTable: TruthTable
 ): {
     newTable: TruthTable,
-    mapping: BooleanFunctionReorderMapping
+    mapping: BooleanFunctionReorderMapping,
+    mappingBeforeToAfter: BooleanFunctionReorderMappingReverse
 } {
     const firstKey = firstKeyOfMap(truthTable);
     const arrayWithIndexes = getArrayWithIndexes(firstKey.length);
     const shuffled = shuffleArray(arrayWithIndexes);
 
     const mapping: BooleanFunctionReorderMapping = {};
-    const mappingBeforeToAfter: BooleanFunctionReorderMapping = {};
+    const mappingBeforeToAfter: BooleanFunctionReorderMappingReverse = {};
     shuffled.forEach((indexBefore, indexAfter) => {
         mapping[indexAfter] = indexBefore;
         mappingBeforeToAfter[indexBefore] = indexAfter;
@@ -126,7 +131,8 @@ export function shuffleBooleanOrdering(
 
     return {
         newTable,
-        mapping
+        mapping,
+        mappingBeforeToAfter
     };
 }
 

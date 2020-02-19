@@ -9,6 +9,14 @@ export function createBddFromTruthTable(
 ): RootNode {
     const root = new RootNode();
 
+    const firstKey = truthTable.keys().next().value;
+    const keyLength = firstKey.length;
+    const mustBeSize = Math.pow(2, keyLength);
+    if (truthTable.size !== mustBeSize) {
+        throw new Error('truth table has missing entries');
+    }
+
+
     for (const [stateSet, value] of truthTable) {
         let lastNode: NonLeafNode = root;
 

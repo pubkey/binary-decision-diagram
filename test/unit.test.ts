@@ -1,4 +1,6 @@
 import * as assert from 'assert';
+import * as path from 'path';
+
 import {
     randomBoolean
 } from 'async-test-util';
@@ -7,7 +9,8 @@ import {
     createBddFromTruthTable,
     NonRootNode,
     ResolverFunctions,
-    SimpleBddInternalNode
+    SimpleBddInternalNode,
+    fillTruthTable
 } from '../src/';
 import {
     InternalNode
@@ -26,9 +29,10 @@ import {
     minimalStringToSimpleBdd
 } from '../src/minimal-string/minimal-string-to-simple-bdd';
 import { resolveWithSimpleBdd } from '../src/minimal-string/resolve-with-simple-bdd';
+import { readJsonFile, objectToMap } from './test-util';
 
 describe('bdd.test.ts', () => {
-    const UNKNOWN = 20;
+    const UNKNOWN = 42;
     function exampleTruthTable(
         stateLength: number = 3
     ): TruthTable {
@@ -80,11 +84,26 @@ describe('bdd.test.ts', () => {
         return table;
     }
 
+    function getBigTruthTable(): TruthTable {
+        const json = readJsonFile(
+            path.join(__dirname, 'big-truth-table.json')
+        );
+        const table = objectToMap(json) as TruthTable;
+        const firstKey = table.keys().next().value;
+        const keyLength = firstKey.length;
+
+        fillTruthTable(table, keyLength, UNKNOWN);
+        return table;
+    }
+
 
     function getResolverFunctions(size: number): ResolverFunctions {
         const resolvers: ResolverFunctions = {};
         new Array(size).fill(0).forEach((_x, index) => {
-            const fn = (state: string) => booleanStringToBoolean((state as any)[index]);
+            const fn = (state: string) => {
+                const ret = booleanStringToBoolean((state as any)[index]);
+                return ret;
+            };
             resolvers[index] = fn;
         });
         return resolvers;
@@ -329,6 +348,18 @@ describe('bdd.test.ts', () => {
                 assert.strictEqual(value, bddValue);
             }
         });
+        it('should work with minimized random table', () => {
+            const size = 8;
+            const table = randomTable(size);
+            const bdd = createBddFromTruthTable(table);
+            const resolvers: ResolverFunctions = getResolverFunctions(size);
+
+            bdd.minimize();
+            for (const [key, value] of table.entries()) {
+                const bddValue = bdd.resolve(resolvers, key);
+                assert.strictEqual(value, bddValue);
+            }
+        });
     });
     describe('minimal representation', () => {
         describe('.bddToMinimalString()', () => {
@@ -382,17 +413,77 @@ describe('bdd.test.ts', () => {
             it('should have the same values as the truth table', () => {
                 const size = 5;
                 const table = exampleTruthTable(size);
-                const bdd = createBddFromTruthTable(table);
-                const str = bddToMinimalString(bdd);
+
+                const bigBdd = createBddFromTruthTable(table);
+                const minimizedBdd = createBddFromTruthTable(table);
+                minimizedBdd.removeIrrelevantLeafNodes(UNKNOWN);
+
+                const str = bddToMinimalString(minimizedBdd);
                 const minimalBdd = minimalStringToSimpleBdd(str);
                 const resolvers: ResolverFunctions = getResolverFunctions(size);
+
                 for (const [key, value] of table.entries()) {
-                    const bddValue = resolveWithSimpleBdd(
+                    if (value === UNKNOWN) {
+                        break;
+                    }
+                    const simpleBddValue = resolveWithSimpleBdd(
                         minimalBdd,
                         resolvers,
                         key
                     );
-                    assert.strictEqual(value, bddValue);
+                    const minimalBddValue = minimizedBdd.resolve(resolvers, key);
+                    const bigBddValue = bigBdd.resolve(resolvers, key);
+                    if (
+                        value !== simpleBddValue ||
+                        value !== minimalBddValue ||
+                        value !== bigBddValue
+                    ) {
+                        console.log('value: ' + value);
+                        console.log('simpleBddValue: ' + simpleBddValue);
+
+                        console.log('minimalBddValue: ' + minimalBddValue);
+                        console.log('bigBddValue: ' + bigBddValue);
+
+                        throw new Error('values not equal');
+                    }
+                }
+            });
+            it('should have the same values with a big truth table', () => {
+                const table = getBigTruthTable();
+                const bigBdd = createBddFromTruthTable(table);
+                const minimizedBdd = createBddFromTruthTable(table);
+                minimizedBdd.removeIrrelevantLeafNodes(UNKNOWN);
+
+                const str = bddToMinimalString(minimizedBdd);
+                const minimalBdd = minimalStringToSimpleBdd(str);
+                const resolvers: ResolverFunctions = getResolverFunctions(17);
+                for (const [key, value] of table.entries()) {
+                    if (value === UNKNOWN) {
+                        break;
+                    }
+                    const simpleBddValue = resolveWithSimpleBdd(
+                        minimalBdd,
+                        resolvers,
+                        key
+                    );
+                    const minimalBddValue = minimizedBdd.resolve(resolvers, key);
+                    const bigBddValue = bigBdd.resolve(resolvers, key);
+                    if (
+                        value !== simpleBddValue ||
+                        value !== minimalBddValue ||
+                        value !== bigBddValue
+                    ) {
+                        console.log('key: ' + key);
+                        console.log('value: ' + value);
+                        console.log('simpleBddValue: ' + simpleBddValue);
+
+                        console.log('minimalBddValue: ' + minimalBddValue);
+                        console.log('bigBddValue: ' + bigBddValue);
+
+                        minimizedBdd.log();
+
+                        throw new Error('values not equal');
+                    }
                 }
             });
         });
