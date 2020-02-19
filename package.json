@@ -29,7 +29,7 @@
     "transpile": "tsc -p ./ && echo '# transpile es5 sucess!'",
     "transpile:es6": "tsc -p ./ --target ES6 --outDir ./dist/es6 && echo '# transpile es6 sucess!'",
     "build": "rimraf -r ./dist && npm run transpile && npm run transpile:es6",
-    "test": "mocha -r ts-node/register test/unit.test.ts --timeout 40000 --bail"
+    "test": "mocha -r ts-node/register test/unit/index.test.ts --timeout 40000 --bail"
   },
   "devDependencies": {
     "@types/mocha": "7.0.1",
