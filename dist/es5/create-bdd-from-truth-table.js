@@ -34,6 +34,12 @@ var leaf_node_1 = require("./leaf-node");
 function createBddFromTruthTable(truthTable) {
     var e_1, _a;
     var root = new root_node_1.RootNode();
+    var firstKey = truthTable.keys().next().value;
+    var keyLength = firstKey.length;
+    var mustBeSize = Math.pow(2, keyLength);
+    if (truthTable.size !== mustBeSize) {
+        throw new Error('truth table has missing entries');
+    }
     try {
         for (var truthTable_1 = __values(truthTable), truthTable_1_1 = truthTable_1.next(); !truthTable_1_1.done; truthTable_1_1 = truthTable_1.next()) {
             var _b = __read(truthTable_1_1.value, 2), stateSet = _b[0], value = _b[1];

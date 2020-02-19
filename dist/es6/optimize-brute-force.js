@@ -68,7 +68,8 @@ export function shuffleBooleanOrdering(truthTable) {
     }
     return {
         newTable,
-        mapping
+        mapping,
+        mappingBeforeToAfter
     };
 }
 export function changeKeyOrder(oldKey, mappingBeforeToAfter) {

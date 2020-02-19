@@ -111,7 +111,8 @@ function shuffleBooleanOrdering(truthTable) {
     }
     return {
         newTable: newTable,
-        mapping: mapping
+        mapping: mapping,
+        mappingBeforeToAfter: mappingBeforeToAfter
     };
 }
 exports.shuffleBooleanOrdering = shuffleBooleanOrdering;

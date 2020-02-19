@@ -10,7 +10,6 @@ export class LeafNode extends AbstractNode {
     }
     removeIfValueEquals(value) {
         this.ensureNotDeleted();
-        // console.log('removeIfValueEquals()');
         if (this.value !== value) {
             return false;
         }

@@ -4,6 +4,12 @@ import { InternalNode } from './internal-node';
 import { LeafNode } from './leaf-node';
 export function createBddFromTruthTable(truthTable) {
     const root = new RootNode();
+    const firstKey = truthTable.keys().next().value;
+    const keyLength = firstKey.length;
+    const mustBeSize = Math.pow(2, keyLength);
+    if (truthTable.size !== mustBeSize) {
+        throw new Error('truth table has missing entries');
+    }
     for (const [stateSet, value] of truthTable) {
         let lastNode = root;
         // itterate over each char of the state

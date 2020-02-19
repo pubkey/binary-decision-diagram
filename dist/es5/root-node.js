@@ -196,7 +196,7 @@ var RootNode = /** @class */ (function (_super) {
             if (currentNode.isLeafNode()) {
                 return currentNode.asLeafNode().value;
             }
-            currentLevel++;
+            currentLevel = currentNode.level;
         }
     };
     return RootNode;

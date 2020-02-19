@@ -28,7 +28,6 @@ var LeafNode = /** @class */ (function (_super) {
     LeafNode.prototype.removeIfValueEquals = function (value) {
         var _this = this;
         this.ensureNotDeleted();
-        // console.log('removeIfValueEquals()');
         if (this.value !== value) {
             return false;
         }
