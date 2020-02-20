@@ -5,9 +5,9 @@ export class RootNode extends AbstractNode {
     constructor() {
         super(0, null, 'RootNode');
         this.branches = new Branches(this);
-        this.levels = new Set();
+        this.levels = [];
         this.nodesByLevel = new Map();
-        this.levels.add(0);
+        this.levels.push(0);
         const level0Set = new Set();
         level0Set.add(this);
         this.nodesByLevel.set(0, level0Set);
@@ -15,7 +15,9 @@ export class RootNode extends AbstractNode {
     addNode(node) {
         var _a;
         const level = node.level;
-        this.levels.add(level);
+        if (!this.levels.includes(level)) {
+            this.levels.push(level);
+        }
         this.ensureLevelSetExists(level);
         const set = this.nodesByLevel.get(level);
         (_a = set) === null || _a === void 0 ? void 0 : _a.add(node);
@@ -134,17 +136,15 @@ export class RootNode extends AbstractNode {
             }
         }
     }
-    resolve(fns, i) {
+    resolve(fns, booleanFunctionInput) {
         let currentNode = this;
-        let currentLevel = 0;
         while (true) {
-            const booleanResult = fns[currentLevel](i);
+            const booleanResult = fns[currentNode.level](booleanFunctionInput);
             const branchKey = booleanToBooleanString(booleanResult);
             currentNode = currentNode.branches.getBranch(branchKey);
             if (currentNode.isLeafNode()) {
                 return currentNode.asLeafNode().value;
             }
-            currentLevel = currentNode.level;
         }
     }
 }

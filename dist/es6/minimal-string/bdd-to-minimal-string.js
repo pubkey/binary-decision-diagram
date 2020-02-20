@@ -9,7 +9,7 @@ export function bddToMinimalString(bdd) {
         throw new Error('cannot build string with too many leaf nodes');
     }
     ret += leafNodeAmount.toString().padStart(2, '0');
-    const levelsHighestFirst = bdd.getLevels().reverse();
+    const levelsHighestFirst = bdd.levels.slice().reverse();
     const idByNode = new Map();
     levelsHighestFirst.forEach(level => {
         const nodes = bdd.getNodesOfLevel(level);
@@ -46,7 +46,7 @@ export function nodeToString(node, idByNode, lastCode) {
             return {
                 id: nextId.char,
                 nextCode: nextId.nextCode,
-                str: '' + branch0IdRoot + branch1IdRoot
+                str: '' + branch0IdRoot + branch1IdRoot + getCharOfLevel(node.level)
             };
         default:
             throw new Error('unknown node type');

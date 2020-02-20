@@ -1,7 +1,7 @@
 import { booleanToBooleanString } from '../util';
 export function resolveWithSimpleBdd(simpleBdd, fns, input) {
     let currentNode = simpleBdd;
-    let currentLevel = 0;
+    let currentLevel = simpleBdd.l;
     while (true) {
         const booleanResult = fns[currentLevel](input);
         const branchKey = booleanToBooleanString(booleanResult);

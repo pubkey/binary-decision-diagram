@@ -1,5 +1,5 @@
 import { createBddFromTruthTable } from './create-bdd-from-truth-table';
-import { firstKeyOfMap, shuffleArray } from './util';
+import { firstKeyOfMap, shuffleArray, lastOfArray } from './util';
 /**
  * returns the bdd with less nodes
  */
@@ -16,7 +16,7 @@ export function defaultCompareResults(a, b) {
  * by randomly sorting the array
  * and checking the resulting bdd
  */
-export function optimizeBruteForce({ truthTable, itterations = Infinity, onBetterBdd = () => null, compareResults = defaultCompareResults, afterBddCreation = () => null }) {
+export function optimizeBruteForce({ truthTable, itterations = Infinity, onBetterBdd = () => null, compareResults = defaultCompareResults, afterBddCreation = () => null, log = false }) {
     const initialBdd = createBddFromTruthTable(truthTable);
     afterBddCreation(initialBdd);
     initialBdd.minimize();
@@ -24,27 +24,57 @@ export function optimizeBruteForce({ truthTable, itterations = Infinity, onBette
         truthTable,
         bdd: initialBdd
     };
-    initialBdd.log();
-    console.log('initial nodes amount: ' + initialBdd.countNodes());
+    if (log) {
+        initialBdd.log();
+        console.log('initial nodes amount: ' + initialBdd.countNodes());
+    }
     let t = 0;
     while (t < itterations) {
         t++;
-        console.log('-'.repeat(50));
-        console.log('optimizeBruteForce() itterate once');
+        if (log) {
+            console.log('-'.repeat(50));
+            console.log('optimizeBruteForce() itterate once');
+        }
         const shuffledOrdering = shuffleBooleanOrdering(truthTable);
         const nextBdd = createBddFromTruthTable(shuffledOrdering.newTable);
+        // change the levels of each node
+        const newNodesByLevel = new Map();
+        const lastLevel = lastOfArray(nextBdd.getLevels());
+        const newSortedLevels = [];
+        nextBdd.getLevels()
+            .filter(level => level !== lastLevel)
+            .forEach(level => {
+            const newLevel = shuffledOrdering.mappingBeforeToAfter[level];
+            newSortedLevels.push(newLevel);
+            const levelSet = new Set();
+            newNodesByLevel.set(newLevel, levelSet);
+            nextBdd.getNodesOfLevel(level).forEach(node => {
+                node.level = newLevel;
+                levelSet.add(node);
+            });
+        });
+        const lastLevelSet = new Set();
+        nextBdd.getNodesOfLevel(lastLevel).forEach(node => lastLevelSet.add(node));
+        newNodesByLevel.set(lastLevel, lastLevelSet);
+        newSortedLevels.push(lastLevel);
+        nextBdd.nodesByLevel = newNodesByLevel;
+        nextBdd.levels = newSortedLevels;
         afterBddCreation(nextBdd);
         nextBdd.minimize();
-        console.log('got new bdd with nodes amount of ' + nextBdd.countNodes());
-        //        nextBdd.log();
+        if (log) {
+            console.log('got new bdd with nodes amount of ' + nextBdd.countNodes());
+            //            nextBdd.log();
+            console.dir(shuffledOrdering.mappingBeforeToAfter);
+        }
         const betterBdd = compareResults(currentBestResult.bdd, nextBdd);
         if (betterBdd === nextBdd) {
-            console.log('#'.repeat(50));
-            console.log('found better bdd ' + nextBdd.countNodes());
+            if (log) {
+                console.log('#'.repeat(50));
+                console.log('found better bdd ' + nextBdd.countNodes());
+            }
             currentBestResult = {
                 bdd: nextBdd,
-                truthTable: shuffledOrdering.newTable,
-                mapping: shuffledOrdering.mapping
+                truthTable: shuffledOrdering.newTable
             };
             onBetterBdd(currentBestResult);
         }
@@ -63,7 +93,7 @@ export function shuffleBooleanOrdering(truthTable) {
     });
     const newTable = new Map();
     for (const [key, value] of truthTable.entries()) {
-        const newKey = changeKeyOrder(key, mappingBeforeToAfter);
+        const newKey = changeKeyOrder(key, mapping);
         newTable.set(newKey, value);
     }
     return {

@@ -32,9 +32,9 @@ var RootNode = /** @class */ (function (_super) {
     function RootNode() {
         var _this = _super.call(this, 0, null, 'RootNode') || this;
         _this.branches = new branches_1.Branches(_this);
-        _this.levels = new Set();
+        _this.levels = [];
         _this.nodesByLevel = new Map();
-        _this.levels.add(0);
+        _this.levels.push(0);
         var level0Set = new Set();
         level0Set.add(_this);
         _this.nodesByLevel.set(0, level0Set);
@@ -43,7 +43,9 @@ var RootNode = /** @class */ (function (_super) {
     RootNode.prototype.addNode = function (node) {
         var _a;
         var level = node.level;
-        this.levels.add(level);
+        if (!this.levels.includes(level)) {
+            this.levels.push(level);
+        }
         this.ensureLevelSetExists(level);
         var set = this.nodesByLevel.get(level);
         (_a = set) === null || _a === void 0 ? void 0 : _a.add(node);
@@ -186,17 +188,15 @@ var RootNode = /** @class */ (function (_super) {
             }
         }
     };
-    RootNode.prototype.resolve = function (fns, i) {
+    RootNode.prototype.resolve = function (fns, booleanFunctionInput) {
         var currentNode = this;
-        var currentLevel = 0;
         while (true) {
-            var booleanResult = fns[currentLevel](i);
+            var booleanResult = fns[currentNode.level](booleanFunctionInput);
             var branchKey = util_1.booleanToBooleanString(booleanResult);
             currentNode = currentNode.branches.getBranch(branchKey);
             if (currentNode.isLeafNode()) {
                 return currentNode.asLeafNode().value;
             }
-            currentLevel = currentNode.level;
         }
     };
     return RootNode;

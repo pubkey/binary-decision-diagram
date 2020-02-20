@@ -47,7 +47,7 @@ exports.defaultCompareResults = defaultCompareResults;
  * and checking the resulting bdd
  */
 function optimizeBruteForce(_a) {
-    var truthTable = _a.truthTable, _b = _a.itterations, itterations = _b === void 0 ? Infinity : _b, _c = _a.onBetterBdd, onBetterBdd = _c === void 0 ? function () { return null; } : _c, _d = _a.compareResults, compareResults = _d === void 0 ? defaultCompareResults : _d, _e = _a.afterBddCreation, afterBddCreation = _e === void 0 ? function () { return null; } : _e;
+    var truthTable = _a.truthTable, _b = _a.itterations, itterations = _b === void 0 ? Infinity : _b, _c = _a.onBetterBdd, onBetterBdd = _c === void 0 ? function () { return null; } : _c, _d = _a.compareResults, compareResults = _d === void 0 ? defaultCompareResults : _d, _e = _a.afterBddCreation, afterBddCreation = _e === void 0 ? function () { return null; } : _e, _f = _a.log, log = _f === void 0 ? false : _f;
     var initialBdd = create_bdd_from_truth_table_1.createBddFromTruthTable(truthTable);
     afterBddCreation(initialBdd);
     initialBdd.minimize();
@@ -55,30 +55,63 @@ function optimizeBruteForce(_a) {
         truthTable: truthTable,
         bdd: initialBdd
     };
-    initialBdd.log();
-    console.log('initial nodes amount: ' + initialBdd.countNodes());
+    if (log) {
+        initialBdd.log();
+        console.log('initial nodes amount: ' + initialBdd.countNodes());
+    }
     var t = 0;
-    while (t < itterations) {
+    var _loop_1 = function () {
         t++;
-        console.log('-'.repeat(50));
-        console.log('optimizeBruteForce() itterate once');
+        if (log) {
+            console.log('-'.repeat(50));
+            console.log('optimizeBruteForce() itterate once');
+        }
         var shuffledOrdering = shuffleBooleanOrdering(truthTable);
         var nextBdd = create_bdd_from_truth_table_1.createBddFromTruthTable(shuffledOrdering.newTable);
+        // change the levels of each node
+        var newNodesByLevel = new Map();
+        var lastLevel = util_1.lastOfArray(nextBdd.getLevels());
+        var newSortedLevels = [];
+        nextBdd.getLevels()
+            .filter(function (level) { return level !== lastLevel; })
+            .forEach(function (level) {
+            var newLevel = shuffledOrdering.mappingBeforeToAfter[level];
+            newSortedLevels.push(newLevel);
+            var levelSet = new Set();
+            newNodesByLevel.set(newLevel, levelSet);
+            nextBdd.getNodesOfLevel(level).forEach(function (node) {
+                node.level = newLevel;
+                levelSet.add(node);
+            });
+        });
+        var lastLevelSet = new Set();
+        nextBdd.getNodesOfLevel(lastLevel).forEach(function (node) { return lastLevelSet.add(node); });
+        newNodesByLevel.set(lastLevel, lastLevelSet);
+        newSortedLevels.push(lastLevel);
+        nextBdd.nodesByLevel = newNodesByLevel;
+        nextBdd.levels = newSortedLevels;
         afterBddCreation(nextBdd);
         nextBdd.minimize();
-        console.log('got new bdd with nodes amount of ' + nextBdd.countNodes());
-        //        nextBdd.log();
+        if (log) {
+            console.log('got new bdd with nodes amount of ' + nextBdd.countNodes());
+            //            nextBdd.log();
+            console.dir(shuffledOrdering.mappingBeforeToAfter);
+        }
         var betterBdd = compareResults(currentBestResult.bdd, nextBdd);
         if (betterBdd === nextBdd) {
-            console.log('#'.repeat(50));
-            console.log('found better bdd ' + nextBdd.countNodes());
+            if (log) {
+                console.log('#'.repeat(50));
+                console.log('found better bdd ' + nextBdd.countNodes());
+            }
             currentBestResult = {
                 bdd: nextBdd,
-                truthTable: shuffledOrdering.newTable,
-                mapping: shuffledOrdering.mapping
+                truthTable: shuffledOrdering.newTable
             };
             onBetterBdd(currentBestResult);
         }
+    };
+    while (t < itterations) {
+        _loop_1();
     }
     return currentBestResult;
 }
@@ -98,7 +131,7 @@ function shuffleBooleanOrdering(truthTable) {
     try {
         for (var _b = __values(truthTable.entries()), _c = _b.next(); !_c.done; _c = _b.next()) {
             var _d = __read(_c.value, 2), key = _d[0], value = _d[1];
-            var newKey = changeKeyOrder(key, mappingBeforeToAfter);
+            var newKey = changeKeyOrder(key, mapping);
             newTable.set(newKey, value);
         }
     }
