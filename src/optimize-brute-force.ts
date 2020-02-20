@@ -77,10 +77,12 @@ export function optimizeBruteForce({
         // change the levels of each node
         const newNodesByLevel: Map<number, Set<AbstractNode>> = new Map();
         const lastLevel = lastOfArray(nextBdd.getLevels());
+        const newSortedLevels: number[] = [];
         nextBdd.getLevels()
             .filter(level => level !== lastLevel)
             .forEach(level => {
                 const newLevel = shuffledOrdering.mappingBeforeToAfter[level];
+                newSortedLevels.push(newLevel);
                 const levelSet: Set<AbstractNode> = new Set();
                 newNodesByLevel.set(newLevel, levelSet);
                 nextBdd.getNodesOfLevel(level).forEach(node => {
@@ -91,7 +93,9 @@ export function optimizeBruteForce({
         const lastLevelSet: Set<AbstractNode> = new Set();
         nextBdd.getNodesOfLevel(lastLevel).forEach(node => lastLevelSet.add(node));
         newNodesByLevel.set(lastLevel, lastLevelSet);
+        newSortedLevels.push(lastLevel);
         nextBdd.nodesByLevel = newNodesByLevel;
+        nextBdd.levels = newSortedLevels;
 
         afterBddCreation(nextBdd);
         nextBdd.minimize();

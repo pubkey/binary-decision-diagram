@@ -1,17 +1,37 @@
 import * as assert from 'assert';
 import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table';
+import { bddToSimpleBdd } from '../../src/minimal-string/bdd-to-simple-bdd';
 import {
-    exampleTruthTable, allEqualTable, randomTable, UNKNOWN,
-    randomUnknownTable, getResolverFunctions, getBigTruthTable
+    exampleTruthTable,
+    randomTable,
+    UNKNOWN,
+    getResolverFunctions,
+    getBigTruthTable
 } from '../helper/test-util';
-import { ensureCorrectBdd } from '../../src/ensure-correct-bdd';
 import {
-    ResolverFunctions, minimalStringToSimpleBdd,
-    bddToMinimalString, resolveWithSimpleBdd,
-    SimpleBddInternalNode
+    ResolverFunctions,
+    minimalStringToSimpleBdd,
+    bddToMinimalString,
+    resolveWithSimpleBdd,
+    SimpleBdd
 } from '../../src';
 
-describe('minimal-string.test.ts', () => {
+describe('simple-bdd.test.ts', () => {
+    describe('.bddToSimpleBdd()', () => {
+        it('should create a correct simple bdd', () => {
+            const table = randomTable(3);
+            const bdd = createBddFromTruthTable(table);
+            const simpleBdd = bddToSimpleBdd(bdd);
+            const v1 = bdd
+                .branches.getBranch('0').asInternalNode()
+                .branches.getBranch('0').asInternalNode()
+                .branches.getBranch('0').asLeafNode().value;
+            const v2 = simpleBdd[0][0][0];
+            assert.equal(
+                v1, v2
+            );
+        });
+    });
     describe('.bddToMinimalString()', () => {
         it('should create a string', () => {
             const table = exampleTruthTable();
@@ -34,6 +54,7 @@ describe('minimal-string.test.ts', () => {
             const bdd = createBddFromTruthTable(table);
             const str = bddToMinimalString(bdd);
             const minimalBdd = minimalStringToSimpleBdd(str);
+
             assert.strictEqual(
                 minimalBdd[0][0][0][0], 0
             );
@@ -41,22 +62,34 @@ describe('minimal-string.test.ts', () => {
                 minimalBdd[0][0][0][1], 1
             );
             assert.strictEqual(
-                (minimalBdd[0][0][0] as SimpleBddInternalNode).l, 3
+                (minimalBdd[0][0][0] as SimpleBdd).l, 3
+            );
+        });
+        it('should be equal to the generated simple bdd', () => {
+            const table = randomTable(6);
+            const bdd = createBddFromTruthTable(table);
+            const str = bddToMinimalString(bdd);
+            const minimalBdd = minimalStringToSimpleBdd(str);
+            const simpleBdd = bddToSimpleBdd(bdd);
+            assert.deepStrictEqual(
+                minimalBdd,
+                simpleBdd
             );
         });
     });
     describe('.resolveWithSimpleBdd()', () => {
         it('should resolve a value', () => {
-            const size = 4;
-            const table = exampleTruthTable(size);
+            const size = 5;
+            const table = randomTable(size);
             const bdd = createBddFromTruthTable(table);
             const str = bddToMinimalString(bdd);
             const minimalBdd = minimalStringToSimpleBdd(str);
             const resolvers: ResolverFunctions = getResolverFunctions(size);
+
             const result = resolveWithSimpleBdd(
                 minimalBdd,
                 resolvers,
-                {}
+                table.keys().next().value
             );
             assert.strictEqual(typeof result, 'number');
         });

@@ -22,9 +22,8 @@ Rules for the string:
     - the second char is the id of the 0-branch
     - the third char is the id of the 1-branch
     - the last char is the id of the boolean-function (= level)
-- The last 2 chars of the string is the root node like 'ab'
+- The last 3 chars of the string is the root node like 'abc'
     - it looks like the internal-node but without the id (first char)
-    - and without the id of the boolean function (is always level 0)
 
 */
 

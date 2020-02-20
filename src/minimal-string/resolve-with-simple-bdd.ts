@@ -1,7 +1,7 @@
 import {
     SimpleBdd,
     ResolverFunctions,
-    SimpleBddNode
+    SimpleBddLeafNode
 } from '../types';
 import { booleanToBooleanString } from '../util';
 
@@ -10,8 +10,8 @@ export function resolveWithSimpleBdd(
     fns: ResolverFunctions,
     input: any
 ): number {
-    let currentNode: SimpleBddNode | SimpleBdd = simpleBdd;
-    let currentLevel: number = 0;
+    let currentNode: SimpleBdd | SimpleBddLeafNode = simpleBdd;
+    let currentLevel: number = simpleBdd.l;
     while (true) {
         const booleanResult = fns[currentLevel](input);
         const branchKey = booleanToBooleanString(booleanResult);

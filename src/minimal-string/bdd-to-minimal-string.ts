@@ -18,7 +18,7 @@ export function bddToMinimalString(bdd: RootNode): string {
 
     ret += leafNodeAmount.toString().padStart(2, '0');
 
-    const levelsHighestFirst = bdd.getLevels().reverse();
+    const levelsHighestFirst = bdd.levels.slice().reverse();
     const idByNode: Map<AbstractNode, string> = new Map();
     levelsHighestFirst.forEach(level => {
         const nodes = bdd.getNodesOfLevel(level);
@@ -64,7 +64,7 @@ export function nodeToString(
             return {
                 id: nextId.char,
                 nextCode: nextId.nextCode,
-                str: '' + branch0IdRoot + branch1IdRoot
+                str: '' + branch0IdRoot + branch1IdRoot + getCharOfLevel(node.level)
             };
         default:
             throw new Error('unknown node type');

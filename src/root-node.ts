@@ -11,7 +11,7 @@ import { LeafNode } from './leaf-node';
 export class RootNode extends AbstractNode {
     public branches: Branches = new Branches(this);
 
-    private levels: Set<number> = new Set();
+    public levels: number[] = [];
     public nodesByLevel: Map<number, Set<AbstractNode>> = new Map();
 
     constructor() {
@@ -20,7 +20,7 @@ export class RootNode extends AbstractNode {
             null,
             'RootNode'
         );
-        this.levels.add(0);
+        this.levels.push(0);
         const level0Set: Set<AbstractNode> = new Set();
         level0Set.add(this);
         this.nodesByLevel.set(0, level0Set);
@@ -28,7 +28,11 @@ export class RootNode extends AbstractNode {
 
     public addNode(node: NonRootNode) {
         const level = node.level;
-        this.levels.add(level);
+
+        if (!this.levels.includes(level)) {
+            this.levels.push(level);
+        }
+
         this.ensureLevelSetExists(level);
         const set = this.nodesByLevel.get(level);
         set?.add(node);

@@ -24,14 +24,6 @@ export type ResolverFunctions<T = any> = {
 // 1 char which is the value
 export type SimpleBddLeafNode = number;
 
-export interface SimpleBddInternalNode {
-    0: SimpleBddInternalNode | SimpleBddLeafNode; // branch-0
-    1: SimpleBddInternalNode | SimpleBddLeafNode; // branch-1
-    l: number; // level of the boolean function
-}
-
-export type SimpleBddNode = SimpleBddLeafNode | SimpleBddInternalNode;
-
 /**
  * a simple bdd is a json-representation
  * which could be parsed from the minimal string
@@ -39,7 +31,7 @@ export type SimpleBddNode = SimpleBddLeafNode | SimpleBddInternalNode;
  * when resolving values
  */
 export type SimpleBdd = {
-    0: SimpleBddInternalNode | SimpleBddLeafNode; // branch-0
-    1: SimpleBddInternalNode | SimpleBddLeafNode; // branch-1
-    l: 0; // root node always has level 0
+    0: SimpleBdd | SimpleBddLeafNode; // branch-0
+    1: SimpleBdd | SimpleBddLeafNode; // branch-1
+    l: number; // level of the boolean function
 }

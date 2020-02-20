@@ -6,6 +6,7 @@ import {
 import { ensureCorrectBdd } from '../../src/ensure-correct-bdd';
 import { InternalNode, NonRootNode, LeafNode, bddToMinimalString, minimalStringToSimpleBdd, resolveWithSimpleBdd } from '../../src';
 import { optimizeBruteForce } from '../../src/optimize-brute-force';
+import { bddToSimpleBdd } from '../../src/minimal-string/bdd-to-simple-bdd';
 
 describe('optimize-brute-force.test.ts', () => {
     it('should return the same values when the order changed', () => {
@@ -45,8 +46,8 @@ describe('optimize-brute-force.test.ts', () => {
             }
         }
     });
-    it('resorted bdds should work with minimal-string', () => {
-        const depth = 8;
+    it('resorted bdds should work with simple bdd', () => {
+        const depth = 7;
         const truthTable = randomTable(depth);
         const bdd = createBddFromTruthTable(truthTable);
         const minimizedBdd = createBddFromTruthTable(truthTable);
@@ -62,14 +63,20 @@ describe('optimize-brute-force.test.ts', () => {
             resortedBdd = optimizedResult.bdd;
         }
 
+        const simpleBdd = bddToSimpleBdd(resortedBdd);
         const minimalString = bddToMinimalString(resortedBdd);
-        const simpleBdd = minimalStringToSimpleBdd(minimalString);
-        const resolvers = getResolverFunctions(depth, false);
+        const simpleBddFromMinimalString = minimalStringToSimpleBdd(minimalString);
 
+        assert.deepStrictEqual(
+            simpleBdd,
+            simpleBddFromMinimalString
+        );
+
+        const resolvers = getResolverFunctions(depth, false);
         for (const [key, value] of truthTable.entries()) {
             const bddValue = bdd.resolve(resolvers, key);
-            const resortedBddValue = resortedBdd.resolve(resolvers, key);
             const minimizedBddValue = minimizedBdd.resolve(resolvers, key);
+            const resortedBddValue = resortedBdd.resolve(resolvers, key);
             const simpleBddValue = resolveWithSimpleBdd(simpleBdd, resolvers, key);
 
             if (

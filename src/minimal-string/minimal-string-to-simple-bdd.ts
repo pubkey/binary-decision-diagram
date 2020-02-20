@@ -1,8 +1,6 @@
 import {
     SimpleBdd,
-    SimpleBddLeafNode,
-    SimpleBddInternalNode,
-    SimpleBddNode
+    SimpleBddLeafNode
 } from '../types';
 import { splitStringToChunks } from '../util';
 import { getNumberOfChar } from './string-format';
@@ -10,7 +8,7 @@ import { getNumberOfChar } from './string-format';
 export function minimalStringToSimpleBdd(
     str: string
 ): SimpleBdd {
-    const nodesById: Map<string, SimpleBddNode> = new Map();
+    const nodesById: Map<string, SimpleBdd | SimpleBddLeafNode> = new Map();
 
     // parse leaf nodes
     const leafNodeAmount = parseInt(str.charAt(0) + str.charAt(1), 10);
@@ -25,7 +23,7 @@ export function minimalStringToSimpleBdd(
     }
 
     // parse internal nodes
-    const internalNodeChars = str.substring(lastLeafNodeChar, str.length - 2);
+    const internalNodeChars = str.substring(lastLeafNodeChar, str.length - 3);
     const internalNodeChunks = splitStringToChunks(internalNodeChars, 4);
     for (let i = 0; i < internalNodeChunks.length; i++) {
         const chunk = internalNodeChunks[i];
@@ -33,26 +31,36 @@ export function minimalStringToSimpleBdd(
         const idOf0Branch = chunk.charAt(1);
         const idOf1Branch = chunk.charAt(2);
         const level = getNumberOfChar(chunk.charAt(3));
-        const node0 = nodesById.get(idOf0Branch) as SimpleBddNode;
-        const node1 = nodesById.get(idOf1Branch) as SimpleBddNode;
-        const node: SimpleBddInternalNode = {
+
+
+        if (!nodesById.has(idOf0Branch)) {
+            throw new Error('missing node with id ' + idOf0Branch);
+        }
+        if (!nodesById.has(idOf1Branch)) {
+            throw new Error('missing node with id ' + idOf1Branch);
+        }
+
+        const node0 = nodesById.get(idOf0Branch) as SimpleBdd;
+        const node1 = nodesById.get(idOf1Branch) as SimpleBdd;
+        const node: SimpleBdd = {
+            l: level, // level is first for prettier json output
             0: node0,
-            1: node1,
-            l: level
+            1: node1
         };
         nodesById.set(id, node);
     }
 
     // parse root node
-    const last2 = str.slice(-2);
-    const idOf0 = last2.charAt(0);
-    const idOf1 = last2.charAt(1);
-    const nodeOf0 = nodesById.get(idOf0) as SimpleBddNode;
-    const nodeOf1 = nodesById.get(idOf1) as SimpleBddNode;
+    const last3 = str.slice(-3);
+    const idOf0 = last3.charAt(0);
+    const idOf1 = last3.charAt(1);
+    const levelOfRoot = getNumberOfChar(last3.charAt(2));
+    const nodeOf0 = nodesById.get(idOf0) as SimpleBdd;
+    const nodeOf1 = nodesById.get(idOf1) as SimpleBdd;
     const rootNode: SimpleBdd = {
+        l: levelOfRoot,
         0: nodeOf0,
         1: nodeOf1,
-        l: 0
     };
 
     return rootNode;
