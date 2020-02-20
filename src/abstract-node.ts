@@ -13,7 +13,7 @@ export class AbstractNode {
     public rootNode: RootNode;
 
     constructor(
-        readonly level: number,
+        public level: number,
         rootNode: RootNode | null,
         type: NodeType
     ) {

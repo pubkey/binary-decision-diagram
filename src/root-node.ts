@@ -12,7 +12,7 @@ export class RootNode extends AbstractNode {
     public branches: Branches = new Branches(this);
 
     private levels: Set<number> = new Set();
-    private nodesByLevel: Map<number, Set<AbstractNode>> = new Map();
+    public nodesByLevel: Map<number, Set<AbstractNode>> = new Map();
 
     constructor() {
         super(
