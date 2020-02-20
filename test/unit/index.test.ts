@@ -3,3 +3,4 @@ import './find-similar-node.test';
 import './minimize.test';
 import './resolve.test';
 import './minimal-string.test';
+import './optimize-brute-force.test';

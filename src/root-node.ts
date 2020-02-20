@@ -166,18 +166,16 @@ export class RootNode extends AbstractNode {
 
     resolve(
         fns: ResolverFunctions,
-        i: any
+        booleanFunctionInput: any
     ): number {
         let currentNode: AbstractNode = this;
-        let currentLevel: number = 0;
         while (true) {
-            const booleanResult = fns[currentLevel](i);
+            const booleanResult = fns[currentNode.level](booleanFunctionInput);
             const branchKey = booleanToBooleanString(booleanResult);
             currentNode = (currentNode as NonLeafNode).branches.getBranch(branchKey);
             if (currentNode.isLeafNode()) {
                 return currentNode.asLeafNode().value;
             }
-            currentLevel = currentNode.level;
         }
     }
 

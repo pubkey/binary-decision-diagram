@@ -94,11 +94,14 @@ export function getBigTruthTable(): TruthTable {
     return table;
 }
 
-export function getResolverFunctions(size: number): ResolverFunctions {
+export function getResolverFunctions(size: number, log: boolean = false): ResolverFunctions {
     const resolvers: ResolverFunctions = {};
     new Array(size).fill(0).forEach((_x, index) => {
         const fn = (state: string) => {
             const ret = booleanStringToBoolean((state as any)[index]);
+            if (log) {
+                console.log('called resolver function with index ' + index + ' returned ' + ret);
+            }
             return ret;
         };
         resolvers[index] = fn;

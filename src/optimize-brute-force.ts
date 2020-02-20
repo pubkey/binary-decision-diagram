@@ -1,7 +1,7 @@
 import { TruthTable } from './types';
 import { RootNode } from './root-node';
 import { createBddFromTruthTable } from './create-bdd-from-truth-table';
-import { firstKeyOfMap, shuffleArray } from './util';
+import { firstKeyOfMap, shuffleArray, lastOfArray } from './util';
 import { AbstractNode } from './abstract-node';
 
 /**
@@ -13,8 +13,6 @@ export type OptmisiationCallback = (bdd: OptimisationResult) => void;
 export interface OptimisationResult {
     bdd: RootNode;
     truthTable: TruthTable;
-    mapping?: BooleanFunctionReorderMapping;
-    mappingBeforeToAfter?: BooleanFunctionReorderMappingReverse;
 }
 
 /**
@@ -35,6 +33,7 @@ export interface OptimizeBruteForceInput {
     // a function that returns the 'better' bdd
     compareResults?: (a: RootNode, b: RootNode) => RootNode;
     afterBddCreation?: (bdd: RootNode) => void;
+    log?: boolean;
 }
 
 /**
@@ -47,7 +46,8 @@ export function optimizeBruteForce({
     itterations = Infinity,
     onBetterBdd = () => null,
     compareResults = defaultCompareResults,
-    afterBddCreation = () => null
+    afterBddCreation = () => null,
+    log = false
 }: OptimizeBruteForceInput): OptimisationResult {
 
     const initialBdd = createBddFromTruthTable(truthTable);
@@ -58,45 +58,64 @@ export function optimizeBruteForce({
         bdd: initialBdd
     };
 
-    initialBdd.log();
-    console.log('initial nodes amount: ' + initialBdd.countNodes());
+    if (log) {
+        initialBdd.log();
+        console.log('initial nodes amount: ' + initialBdd.countNodes());
+    }
 
     let t = 0;
     while (t < itterations) {
         t++;
-        console.log('-'.repeat(50));
-        console.log('optimizeBruteForce() itterate once');
+
+        if (log) {
+            console.log('-'.repeat(50));
+            console.log('optimizeBruteForce() itterate once');
+        }
         const shuffledOrdering = shuffleBooleanOrdering(truthTable);
         const nextBdd = createBddFromTruthTable(shuffledOrdering.newTable);
 
         // change the levels of each node
         const newNodesByLevel: Map<number, Set<AbstractNode>> = new Map();
-        nextBdd.getLevels().forEach(level => {
-            const newLevel = shuffledOrdering.mappingBeforeToAfter[level];
-            const levelSet: Set<AbstractNode> = new Set();
-            newNodesByLevel.set(newLevel, levelSet);
-            nextBdd.getNodesOfLevel(level).forEach(node => {
-                node.level = newLevel;
-                levelSet.add(node);
+        const lastLevel = lastOfArray(nextBdd.getLevels());
+        nextBdd.getLevels()
+            .filter(level => level !== lastLevel)
+            .forEach(level => {
+                const newLevel = shuffledOrdering.mappingBeforeToAfter[level];
+                const levelSet: Set<AbstractNode> = new Set();
+                newNodesByLevel.set(newLevel, levelSet);
+                nextBdd.getNodesOfLevel(level).forEach(node => {
+                    node.level = newLevel;
+                    levelSet.add(node);
+                });
             });
-        });
+        const lastLevelSet: Set<AbstractNode> = new Set();
+        nextBdd.getNodesOfLevel(lastLevel).forEach(node => lastLevelSet.add(node));
+        newNodesByLevel.set(lastLevel, lastLevelSet);
         nextBdd.nodesByLevel = newNodesByLevel;
 
         afterBddCreation(nextBdd);
         nextBdd.minimize();
-        console.log('got new bdd with nodes amount of ' + nextBdd.countNodes());
-        //        nextBdd.log();
+
+        if (log) {
+            console.log('got new bdd with nodes amount of ' + nextBdd.countNodes());
+            //            nextBdd.log();
+            console.dir(shuffledOrdering.mappingBeforeToAfter);
+        }
+
         const betterBdd = compareResults(
             currentBestResult.bdd,
             nextBdd
         );
         if (betterBdd === nextBdd) {
-            console.log('#'.repeat(50));
-            console.log('found better bdd ' + nextBdd.countNodes());
+
+            if (log) {
+                console.log('#'.repeat(50));
+                console.log('found better bdd ' + nextBdd.countNodes());
+            }
+
             currentBestResult = {
                 bdd: nextBdd,
-                truthTable: shuffledOrdering.newTable,
-                mapping: shuffledOrdering.mapping
+                truthTable: shuffledOrdering.newTable
             };
             onBetterBdd(currentBestResult);
         }
@@ -137,7 +156,7 @@ export function shuffleBooleanOrdering(
     for (const [key, value] of truthTable.entries()) {
         const newKey = changeKeyOrder(
             key,
-            mappingBeforeToAfter
+            mapping
         );
         newTable.set(
             newKey,
