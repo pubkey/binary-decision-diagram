@@ -21,7 +21,7 @@ describe('optimize-brute-force.test.ts', () => {
         while (resortedBdd.countNodes() === minimizedBdd.countNodes()) {
             const optimizedResult = optimizeBruteForce({
                 truthTable,
-                itterations: 1
+                iterations: 1
             });
             resortedBdd = optimizedResult.bdd;
         }
@@ -58,7 +58,7 @@ describe('optimize-brute-force.test.ts', () => {
         while (resortedBdd.countNodes() === minimizedBdd.countNodes()) {
             const optimizedResult = optimizeBruteForce({
                 truthTable,
-                itterations: 1
+                iterations: 1
             });
             resortedBdd = optimizedResult.bdd;
         }

@@ -28,7 +28,7 @@ export function defaultCompareResults(a: RootNode, b: RootNode): RootNode {
 
 export interface OptimizeBruteForceInput {
     truthTable: TruthTable;
-    itterations?: number;
+    iterations?: number;
     onBetterBdd?: OptmisiationCallback;
     // a function that returns the 'better' bdd
     compareResults?: (a: RootNode, b: RootNode) => RootNode;
@@ -43,7 +43,7 @@ export interface OptimizeBruteForceInput {
  */
 export function optimizeBruteForce({
     truthTable,
-    itterations = Infinity,
+    iterations = Infinity,
     onBetterBdd = () => null,
     compareResults = defaultCompareResults,
     afterBddCreation = () => null,
@@ -64,7 +64,7 @@ export function optimizeBruteForce({
     }
 
     let t = 0;
-    while (t < itterations) {
+    while (t < iterations) {
         t++;
 
         if (log) {

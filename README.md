@@ -118,7 +118,7 @@ Optimizes the sorting of the boolean functions to get an optimal BDD.
 ```typescript
 optimizeBruteForce({
     truthTable,
-    itterations: 10000,
+    iterations: 10000,
     // hook that runs whenever a bdd is created (optional)
     afterBddCreation: (bdd: RootNode) => {
         bdd.removeIrrelevantLeafNodes(unknownValueActionId);
