@@ -1,6 +1,6 @@
 {
   "name": "binary-decision-diagram",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "A library to create, minimize and optimize binary decision diagrams",
   "keywords": [
     "binary decision diagram",
@@ -18,17 +18,17 @@
     "url": "https://github.com/pubkey/binary-decision-diagram/issues"
   },
   "homepage": "https://github.com/pubkey/binary-decision-diagram#readme",
-  "main": "./dist/es5/index.js",
-  "jsnext:main": "./dist/es6/index.js",
-  "module": "./dist/es6/index.js",
+  "main": "./dist/lib/index.js",
+  "jsnext:main": "./dist/es/index.js",
+  "module": "./dist/es/index.js",
   "sideEffects": false,
   "types": "./src/index.ts",
   "scripts": {
     "lint": "tslint --project .",
     "lint:fix": "tslint --project . --fix",
-    "transpile": "tsc -p ./ && echo '# transpile es5 sucess!'",
-    "transpile:es6": "tsc -p ./ --target ES6 --outDir ./dist/es6 && echo '# transpile es6 sucess!'",
-    "build": "rimraf -r ./dist && npm run transpile && npm run transpile:es6",
+    "transpile": "tsc -p ./ && echo '# transpile es5 (require) sucess!'",
+    "transpile:es": "tsc -p ./ --target ES5 --module ES6 --outDir ./dist/es && echo '# transpile es (modules) sucess!'",
+    "build": "rimraf -r ./dist && npm run transpile && npm run transpile:es",
     "test": "mocha -r ts-node/register test/unit/index.test.ts --timeout 40000 --bail"
   },
   "devDependencies": {
