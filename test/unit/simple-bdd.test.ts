@@ -32,6 +32,19 @@ describe('simple-bdd.test.ts', () => {
             );
         });
     });
+    describe('RootNode.toSimpleBdd()', () => {
+        const table = randomTable(3);
+        const bdd = createBddFromTruthTable(table);
+        const simpleBdd = bdd.toSimpleBdd();
+        const v1 = bdd
+            .branches.getBranch('0').asInternalNode()
+            .branches.getBranch('0').asInternalNode()
+            .branches.getBranch('0').asLeafNode().value;
+        const v2 = simpleBdd[0][0][0];
+        assert.equal(
+            v1, v2
+        );
+    });
     describe('.bddToMinimalString()', () => {
         it('should create a string', () => {
             const table = exampleTruthTable();

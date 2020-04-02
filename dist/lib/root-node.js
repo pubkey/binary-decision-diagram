@@ -27,6 +27,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var abstract_node_1 = require("./abstract-node");
 var branches_1 = require("./branches");
 var util_1 = require("./util");
+var minimal_string_1 = require("./minimal-string");
 var RootNode = /** @class */ (function (_super) {
     __extends(RootNode, _super);
     function RootNode() {
@@ -197,6 +198,9 @@ var RootNode = /** @class */ (function (_super) {
                 return currentNode.asLeafNode().value;
             }
         }
+    };
+    RootNode.prototype.toSimpleBdd = function () {
+        return minimal_string_1.bddToSimpleBdd(this);
     };
     return RootNode;
 }(abstract_node_1.AbstractNode));

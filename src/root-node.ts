@@ -1,12 +1,18 @@
 import { AbstractNode } from './abstract-node';
 import { Branches } from './branches';
-import { NonRootNode, ResolverFunctions, NonLeafNode } from './types';
+import {
+    NonRootNode,
+    ResolverFunctions,
+    NonLeafNode,
+    SimpleBdd
+} from './types';
 import {
     lastOfArray,
     booleanToBooleanString
 } from './util';
 import { InternalNode } from './internal-node';
 import { LeafNode } from './leaf-node';
+import { bddToSimpleBdd } from './minimal-string';
 
 export class RootNode extends AbstractNode {
     public branches: Branches = new Branches(this);
@@ -183,4 +189,7 @@ export class RootNode extends AbstractNode {
         }
     }
 
+    public toSimpleBdd(): SimpleBdd {
+        return bddToSimpleBdd(this);
+    }
 }

@@ -25,6 +25,7 @@ var __values = (this && this.__values) || function(o) {
 import { AbstractNode } from './abstract-node';
 import { Branches } from './branches';
 import { lastOfArray, booleanToBooleanString } from './util';
+import { bddToSimpleBdd } from './minimal-string';
 var RootNode = /** @class */ (function (_super) {
     __extends(RootNode, _super);
     function RootNode() {
@@ -195,6 +196,9 @@ var RootNode = /** @class */ (function (_super) {
                 return currentNode.asLeafNode().value;
             }
         }
+    };
+    RootNode.prototype.toSimpleBdd = function () {
+        return bddToSimpleBdd(this);
     };
     return RootNode;
 }(AbstractNode));
