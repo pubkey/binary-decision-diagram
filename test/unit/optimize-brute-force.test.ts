@@ -5,11 +5,11 @@ import {
 } from '../helper/test-util';
 import { ensureCorrectBdd } from '../../src/ensure-correct-bdd';
 import { InternalNode, NonRootNode, LeafNode, bddToMinimalString, minimalStringToSimpleBdd, resolveWithSimpleBdd } from '../../src';
-import { optimizeBruteForce } from '../../src/optimize-brute-force';
+import { optimizeBruteForce, CompareResultsFunction } from '../../src/optimize-brute-force';
 import { bddToSimpleBdd } from '../../src/minimal-string/bdd-to-simple-bdd';
 
 describe('optimize-brute-force.test.ts', () => {
-    it('should return the same values when the order changed', () => {
+    it('should return the same values when the order changed', async () => {
         const depth = 8;
         const truthTable = randomTable(depth);
         const bdd = createBddFromTruthTable(truthTable);
@@ -19,7 +19,7 @@ describe('optimize-brute-force.test.ts', () => {
         // run optimisation until a better bdd is found
         let resortedBdd = minimizedBdd;
         while (resortedBdd.countNodes() === minimizedBdd.countNodes()) {
-            const optimizedResult = optimizeBruteForce({
+            const optimizedResult = await optimizeBruteForce({
                 truthTable,
                 iterations: 1
             });
@@ -46,7 +46,7 @@ describe('optimize-brute-force.test.ts', () => {
             }
         }
     });
-    it('resorted bdds should work with simple bdd', () => {
+    it('resorted bdds should work with simple bdd', async () => {
         const depth = 7;
         const truthTable = randomTable(depth);
         const bdd = createBddFromTruthTable(truthTable);
@@ -56,7 +56,7 @@ describe('optimize-brute-force.test.ts', () => {
         // run optimisation until a better bdd is found
         let resortedBdd = minimizedBdd;
         while (resortedBdd.countNodes() === minimizedBdd.countNodes()) {
-            const optimizedResult = optimizeBruteForce({
+            const optimizedResult = await optimizeBruteForce({
                 truthTable,
                 iterations: 1
             });
@@ -93,5 +93,22 @@ describe('optimize-brute-force.test.ts', () => {
                 throw new Error('values not equal');
             }
         }
+    });
+    it('compareResults function could be async', async () => {
+        const depth = 5;
+        const truthTable = randomTable(depth);
+        const minimizedBdd = createBddFromTruthTable(truthTable);
+        minimizedBdd.minimize();
+
+        const compareResults: CompareResultsFunction = (a, b) => {
+            return Promise.resolve(a);
+        };
+
+        const optimizedResult = await optimizeBruteForce({
+            truthTable,
+            iterations: 5,
+            compareResults
+        });
+        assert.ok(optimizedResult.bdd);
     });
 });

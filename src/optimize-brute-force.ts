@@ -15,23 +15,28 @@ export interface OptimisationResult {
     truthTable: TruthTable;
 }
 
+export type CompareResultsFunction = (a: RootNode, b: RootNode) => RootNode | Promise<RootNode>;
+
 /**
  * returns the bdd with less nodes
  */
-export function defaultCompareResults(a: RootNode, b: RootNode): RootNode {
+export const defaultCompareResults: CompareResultsFunction = function (
+    a: RootNode,
+    b: RootNode
+): RootNode {
     if (a.countNodes() <= b.countNodes()) {
         return a;
     } else {
         return b;
     }
-}
+};
 
 export interface OptimizeBruteForceInput {
     truthTable: TruthTable;
     iterations?: number;
     onBetterBdd?: OptmisiationCallback;
     // a function that returns the 'better' bdd
-    compareResults?: (a: RootNode, b: RootNode) => RootNode;
+    compareResults?: CompareResultsFunction;
     afterBddCreation?: (bdd: RootNode) => void;
     log?: boolean;
 }
@@ -41,14 +46,14 @@ export interface OptimizeBruteForceInput {
  * by randomly sorting the array
  * and checking the resulting bdd
  */
-export function optimizeBruteForce({
+export async function optimizeBruteForce({
     truthTable,
     iterations = Infinity,
     onBetterBdd = () => null,
     compareResults = defaultCompareResults,
     afterBddCreation = () => null,
     log = false
-}: OptimizeBruteForceInput): OptimisationResult {
+}: OptimizeBruteForceInput): Promise<OptimisationResult> {
 
     const initialBdd = createBddFromTruthTable(truthTable);
     afterBddCreation(initialBdd);
@@ -106,10 +111,14 @@ export function optimizeBruteForce({
             console.dir(shuffledOrdering.mappingBeforeToAfter);
         }
 
-        const betterBdd = compareResults(
+        const betterBdd = await compareResults(
             currentBestResult.bdd,
             nextBdd
         );
+        if (betterBdd.type !== 'RootNode') {
+            throw new Error('compareResults did not return a bdd');
+        }
+
         if (betterBdd === nextBdd) {
 
             if (log) {
