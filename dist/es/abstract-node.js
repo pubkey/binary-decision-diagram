@@ -29,7 +29,7 @@ var AbstractNode = /** @class */ (function () {
                 throw new Error('cannot remove node with parents ' + this.id);
             }
         }
-        if (this['branches']) {
+        if (this.branches) {
             var useNode = this;
             if (useNode.branches.areBranchesStrictEqual()) {
                 useNode.branches.getBranch('0').parents.remove(useNode);
@@ -50,14 +50,14 @@ var AbstractNode = /** @class */ (function () {
             type: this.type,
             level: this.level
         };
-        if (withId && this['parents']) {
-            ret.parents = this['parents'].toString();
+        if (withId && this.parents) {
+            ret.parents = this.parents.toString();
         }
         if (this.isLeafNode()) {
             ret.value = this.asLeafNode().value;
         }
-        if (this['branches'] && !this['branches'].deleted) {
-            var branches = this['branches'];
+        if (this.branches && !this.branches.deleted) {
+            var branches = this.branches;
             ret.branches = {
                 '0': branches.getBranch('0').toJSON(withId),
                 '1': branches.getBranch('1').toJSON(withId)
@@ -71,8 +71,8 @@ var AbstractNode = /** @class */ (function () {
         var ret = '' +
             '<' +
             this.type + ':' + this.level;
-        if (this['branches']) {
-            var branches = this['branches'];
+        if (this.branches) {
+            var branches = this.branches;
             ret += '|0:' + branches.getBranch('0');
             ret += '|1:' + branches.getBranch('1');
         }

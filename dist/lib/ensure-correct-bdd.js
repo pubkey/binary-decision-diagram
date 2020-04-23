@@ -26,7 +26,7 @@ function ensureCorrectBdd(bdd) {
             var firstId_1 = nodesOnlyInRecursive[0];
             var referenceToFirst = allNodes.find(function (n) {
                 if (n.isInternalNode()) {
-                    return n['branches'].hasNodeIdAsBranch(firstId_1);
+                    return n.branches.hasNodeIdAsBranch(firstId_1);
                 }
                 return false;
             });
