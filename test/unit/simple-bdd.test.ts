@@ -26,8 +26,8 @@ describe('simple-bdd.test.ts', () => {
                 .branches.getBranch('0').asInternalNode()
                 .branches.getBranch('0').asInternalNode()
                 .branches.getBranch('0').asLeafNode().value;
-            const v2 = simpleBdd[0][0][0];
-            assert.equal(
+            const v2: any = (simpleBdd as any)[0][0][0];
+            assert.strictEqual(
                 v1, v2
             );
         });
@@ -40,8 +40,8 @@ describe('simple-bdd.test.ts', () => {
             .branches.getBranch('0').asInternalNode()
             .branches.getBranch('0').asInternalNode()
             .branches.getBranch('0').asLeafNode().value;
-        const v2 = simpleBdd[0][0][0];
-        assert.equal(
+        const v2 = (simpleBdd as any)[0][0][0];
+        assert.strictEqual(
             v1, v2
         );
     });
@@ -69,13 +69,13 @@ describe('simple-bdd.test.ts', () => {
             const minimalBdd = minimalStringToSimpleBdd(str);
 
             assert.strictEqual(
-                minimalBdd[0][0][0][0], 0
+                (minimalBdd as any)[0][0][0][0], 0
             );
             assert.strictEqual(
-                minimalBdd[0][0][0][1], 1
+                (minimalBdd as any)[0][0][0][1], 1
             );
             assert.strictEqual(
-                (minimalBdd[0][0][0] as SimpleBdd).l, 3
+                (minimalBdd as any)[0][0][0].l, 3
             );
         });
         it('should be equal to the generated simple bdd', () => {

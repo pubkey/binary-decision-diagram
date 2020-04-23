@@ -37,7 +37,7 @@ export function ensureCorrectBdd(bdd: RootNode) {
             const firstId = nodesOnlyInRecursive[0];
             const referenceToFirst = allNodes.find(n => {
                 if (n.isInternalNode()) {
-                    return n['branches'].hasNodeIdAsBranch(firstId);
+                    return (n as InternalNode).branches.hasNodeIdAsBranch(firstId);
                 }
                 return false;
             });

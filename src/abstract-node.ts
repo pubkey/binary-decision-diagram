@@ -48,7 +48,7 @@ export class AbstractNode {
             }
         }
 
-        if (this['branches']) {
+        if ((this as any).branches) {
             const useNode: NonLeafNode = this as any;
             if (useNode.branches.areBranchesStrictEqual()) {
                 useNode.branches.getBranch('0').parents.remove(useNode);
@@ -70,14 +70,14 @@ export class AbstractNode {
             level: this.level
         };
 
-        if (withId && this['parents']) {
-            ret.parents = this['parents'].toString();
+        if (withId && (this as any).parents) {
+            ret.parents = (this as any).parents.toString();
         }
         if (this.isLeafNode()) {
             ret.value = this.asLeafNode().value;
         }
-        if (this['branches'] && !this['branches'].deleted) {
-            const branches: Branches = this['branches'];
+        if ((this as any).branches && !(this as any).branches.deleted) {
+            const branches: Branches = (this as any).branches;
             ret.branches = {
                 '0': branches.getBranch('0').toJSON(withId),
                 '1': branches.getBranch('1').toJSON(withId)
@@ -95,8 +95,8 @@ export class AbstractNode {
             '<' +
             this.type + ':' + this.level;
 
-        if (this['branches']) {
-            const branches: Branches = this['branches'];
+        if ((this as any).branches) {
+            const branches: Branches = (this as any).branches;
             ret += '|0:' + branches.getBranch('0');
             ret += '|1:' + branches.getBranch('1');
         }
@@ -176,9 +176,9 @@ export class AbstractNode {
             // move own parents to other
             const ownParents = (this as any).parents.getAll();
             const parentsWithStrictEqualBranches: NonLeafNode[] = [];
-            ownParents.forEach(parent => {
+            ownParents.forEach((parent: InternalNode) => {
                 // console.log('ownParent: ' + parent.id);
-                const branchKey = parent.branches.getKeyOfNode(this);
+                const branchKey = parent.branches.getKeyOfNode(this as any);
                 // console.log('branchKey: ' + branchKey);
                 parent.branches.setBranch(branchKey, other);
 
