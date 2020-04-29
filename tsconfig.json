@@ -11,6 +11,7 @@
         "downlevelIteration": true,
         "moduleResolution": "node",
         "esModuleInterop": true,
+        "declaration": true,
         "target": "es5",
         "outDir": "./dist/lib",
         "lib": [

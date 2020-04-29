@@ -1,6 +1,6 @@
 {
   "name": "binary-decision-diagram",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "description": "A library to create, minimize and optimize binary decision diagrams",
   "keywords": [
     "binary decision diagram",
@@ -22,7 +22,7 @@
   "jsnext:main": "./dist/es/index.js",
   "module": "./dist/es/index.js",
   "sideEffects": false,
-  "types": "./src/index.ts",
+  "types": "./dist/es/index.d.ts",
   "scripts": {
     "lint": "tslint --project .",
     "lint:fix": "tslint --project . --fix",
