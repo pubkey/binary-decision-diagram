@@ -34,4 +34,4 @@ export type SimpleBdd = {
     0: SimpleBdd | SimpleBddLeafNode; // branch-0
     1: SimpleBdd | SimpleBddLeafNode; // branch-1
     l: number; // level of the boolean function
-}
+};
