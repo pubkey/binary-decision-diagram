@@ -1,10 +1,10 @@
 import { AbstractNode } from './abstract-node';
 import { Branches } from './branches';
-import {
+import type {
     NonRootNode,
     ResolverFunctions,
     NonLeafNode,
-    SimpleBdd
+    MinimalRepresentation
 } from './types';
 import {
     lastOfArray,
@@ -12,7 +12,7 @@ import {
 } from './util';
 import { InternalNode } from './internal-node';
 import { LeafNode } from './leaf-node';
-import { bddToSimpleBdd } from './minimal-string';
+import { bddToMinimalRepresentation } from './minimal-representation';
 
 export class RootNode extends AbstractNode {
     public branches: Branches = new Branches(this);
@@ -189,7 +189,7 @@ export class RootNode extends AbstractNode {
         }
     }
 
-    public toSimpleBdd(): SimpleBdd {
-        return bddToSimpleBdd(this);
+    public toMinimalRepresentation(): MinimalRepresentation {
+        return bddToMinimalRepresentation(this);
     }
 }

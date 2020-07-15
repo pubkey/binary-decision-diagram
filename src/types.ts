@@ -18,7 +18,7 @@ export type ResolverFunctions<T = any> = {
     [k: number]: ResolverFunction<T>;
 };
 
-
+export type MinimalRepresentation = number[];
 
 
 // 1 char which is the value
