@@ -1,9 +1,10 @@
 # binary decision diagram
 
-A library to create, minimize and optimize binary decision diagrams in JavaScript.
+A library to **create**, **minimize** and **optimize** binary decision diagrams in JavaScript.
 
 
-Links:
+
+A binary decision diagram is a data structure that represents a set of boolean function in an efficient way. To learn more about it, follow these links:
 
 - [Introduction on BDDs](https://web.archive.org/web/20110304135553/http://configit.com/fileadmin/Configit/Documents/bdd-eap.pdf)
 - [Presentation on BDDs](https://de.slideshare.net/RajeshYadav49/reduced-ordered-binary-decision-diagram-devi)
