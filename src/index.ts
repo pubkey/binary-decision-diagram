@@ -17,7 +17,6 @@ export * from './util';
  * So we have to export each type by its own
  * to ensure the types js file is not included
  * into the bundle.
- * 
  */
 
 export type {
