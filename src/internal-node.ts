@@ -2,7 +2,7 @@ import { Branches } from './branches';
 import { Parents } from './parents';
 import { RootNode } from './root-node';
 import { AbstractNode } from './abstract-node';
-import { NonLeafNode, NonRootNode } from './types';
+import type { NonLeafNode, NonRootNode } from './types';
 
 export class InternalNode extends AbstractNode {
     public branches: Branches = new Branches(this);

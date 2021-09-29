@@ -1,4 +1,4 @@
-import { TruthTable } from './types';
+import type { TruthTable } from './types';
 import { RootNode } from './root-node';
 import { createBddFromTruthTable } from './create-bdd-from-truth-table';
 import { firstKeyOfMap, shuffleArray, lastOfArray } from './util';

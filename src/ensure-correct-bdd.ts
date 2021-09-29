@@ -1,6 +1,6 @@
 import { RootNode } from './root-node';
 import { AbstractNode } from './abstract-node';
-import { NonRootNode, NonLeafNode } from './types';
+import type { NonRootNode, NonLeafNode } from './types';
 import { InternalNode } from './internal-node';
 
 /**

@@ -1,5 +1,4 @@
-import { BooleanString, NonRootNode, NonLeafNode } from './types';
-import { oppositeBoolean } from './util';
+import type { BooleanString, NonRootNode, NonLeafNode } from './types';
 import { AbstractNode } from './abstract-node';
 
 /**

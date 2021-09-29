@@ -1,7 +1,7 @@
 import { Parents } from './parents';
 import { AbstractNode } from './abstract-node';
 import { RootNode } from './root-node';
-import { NonLeafNode } from './types';
+import type { NonLeafNode } from './types';
 import { oppositeBoolean } from './util';
 import { InternalNode } from './internal-node';
 

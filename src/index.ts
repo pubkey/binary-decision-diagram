@@ -10,5 +10,24 @@ export * from './leaf-node';
 export * from './optimize-brute-force';
 export * from './parents';
 export * from './root-node';
-export * from './types';
 export * from './util';
+
+/**
+ * There is no "export type * from 'xxx'"
+ * So we have to export each type by its own
+ * to ensure the types js file is not included
+ * into the bundle.
+ * 
+ */
+
+export type {
+    NodeType,
+    NonLeafNode,
+    NonRootNode,
+    TruthTable,
+    BooleanString,
+    ResolverFunction,
+    ResolverFunctions,
+    SimpleBddLeafNode,
+    SimpleBdd
+} from './types';

@@ -1,6 +1,6 @@
 import { AbstractNode } from './abstract-node';
 import { Branches } from './branches';
-import {
+import type {
     NonRootNode,
     ResolverFunctions,
     NonLeafNode,

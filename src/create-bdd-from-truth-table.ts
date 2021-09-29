@@ -2,7 +2,7 @@ import { RootNode } from './root-node';
 import { lastChar } from './util';
 import { InternalNode } from './internal-node';
 import { LeafNode } from './leaf-node';
-import { TruthTable, NonLeafNode, BooleanString } from './types';
+import type { TruthTable, NonLeafNode, BooleanString } from './types';
 
 export function createBddFromTruthTable(
     truthTable: TruthTable

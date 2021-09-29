@@ -3,7 +3,7 @@ import {
     maxBinaryWithLength,
     getNextStateSet
 } from './util';
-import { TruthTable } from './types';
+import type { TruthTable } from './types';
 
 /**
  * fills each missing row of a table

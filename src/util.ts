@@ -1,4 +1,4 @@
-import { BooleanString } from './types';
+import type { BooleanString } from './types';
 
 export function booleanStringToBoolean(str: BooleanString): boolean {
     if (str === '1') {

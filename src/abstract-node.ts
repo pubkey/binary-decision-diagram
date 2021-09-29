@@ -1,5 +1,5 @@
 import { nextNodeId } from './util';
-import { NonRootNode, NonLeafNode, NodeType } from './types';
+import type { NonRootNode, NonLeafNode, NodeType } from './types';
 import { Branches } from './branches';
 import { RootNode } from './root-node';
 import { InternalNode } from './internal-node';

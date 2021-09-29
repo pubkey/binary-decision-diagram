@@ -1,4 +1,4 @@
-import {
+import type {
     NonLeafNode,
     NonRootNode
 } from './types';
