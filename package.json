@@ -18,11 +18,16 @@
     "url": "https://github.com/pubkey/binary-decision-diagram/issues"
   },
   "homepage": "https://github.com/pubkey/binary-decision-diagram#readme",
+  "exports": {
+    ".": {
+      "import": "./dist/es/index.js",
+      "default": "./dist/lib/index.js"
+    }
+  },
   "main": "./dist/lib/index.js",
-  "jsnext:main": "./dist/es/index.js",
   "module": "./dist/es/index.js",
-  "sideEffects": false,
   "types": "./dist/es/index.d.ts",
+  "sideEffects": false,
   "scripts": {
     "lint": "tslint --project .",
     "lint:fix": "tslint --project . --fix",
