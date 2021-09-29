@@ -1,4 +1,4 @@
-import { TruthTable } from './types';
+import type { TruthTable } from './types';
 import { RootNode } from './root-node';
 /**
  * a function that is called each time

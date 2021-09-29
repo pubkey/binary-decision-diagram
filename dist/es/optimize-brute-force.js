@@ -100,8 +100,8 @@ export function optimizeBruteForce(_a) {
                     t = 0;
                     _loop_1 = function () {
                         var shuffledOrdering, nextBdd, newNodesByLevel, lastLevel, newSortedLevels, lastLevelSet, betterBdd;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
+                        return __generator(this, function (_h) {
+                            switch (_h.label) {
                                 case 0:
                                     t++;
                                     if (log) {
@@ -140,7 +140,7 @@ export function optimizeBruteForce(_a) {
                                     }
                                     return [4 /*yield*/, compareResults(currentBestResult.bdd, nextBdd)];
                                 case 1:
-                                    betterBdd = _a.sent();
+                                    betterBdd = _h.sent();
                                     if (betterBdd.type !== 'RootNode') {
                                         throw new Error('compareResults did not return a bdd');
                                     }

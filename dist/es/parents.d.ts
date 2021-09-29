@@ -1,4 +1,4 @@
-import { NonLeafNode, NonRootNode } from './types';
+import type { NonLeafNode, NonRootNode } from './types';
 /**
  * represents the parents of a single node
  */

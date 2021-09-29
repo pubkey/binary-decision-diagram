@@ -3,10 +3,12 @@ var __extends = (this && this.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
             ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
         return extendStatics(d, b);
     };
     return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
         extendStatics(d, b);
         function __() { this.constructor = d; }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
@@ -24,6 +26,7 @@ var __values = (this && this.__values) || function(o) {
     throw new TypeError(s ? "Object is not iterable." : "Symbol.iterator is not defined.");
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.RootNode = void 0;
 var abstract_node_1 = require("./abstract-node");
 var branches_1 = require("./branches");
 var util_1 = require("./util");
@@ -92,7 +95,7 @@ var RootNode = /** @class */ (function (_super) {
                 console.log('minimize() itterate once');
             }
             var successCount = 0;
-            var lastLevel = util_1.lastOfArray(this.getLevels());
+            var lastLevel = (0, util_1.lastOfArray)(this.getLevels());
             while (lastLevel > 0) {
                 var nodes = this.getNodesOfLevel(lastLevel);
                 if (logState) {
@@ -152,7 +155,7 @@ var RootNode = /** @class */ (function (_super) {
         }
     };
     RootNode.prototype.getLeafNodes = function () {
-        var lastLevel = util_1.lastOfArray(this.getLevels());
+        var lastLevel = (0, util_1.lastOfArray)(this.getLevels());
         var leafNodes = this.getNodesOfLevel(lastLevel).reverse();
         return leafNodes;
     };
@@ -192,7 +195,7 @@ var RootNode = /** @class */ (function (_super) {
         var currentNode = this;
         while (true) {
             var booleanResult = fns[currentNode.level](booleanFunctionInput);
-            var branchKey = util_1.booleanToBooleanString(booleanResult);
+            var branchKey = (0, util_1.booleanToBooleanString)(booleanResult);
             currentNode = currentNode.branches.getBranch(branchKey);
             if (currentNode.isLeafNode()) {
                 return currentNode.asLeafNode().value;
@@ -200,7 +203,7 @@ var RootNode = /** @class */ (function (_super) {
         }
     };
     RootNode.prototype.toSimpleBdd = function () {
-        return minimal_string_1.bddToSimpleBdd(this);
+        return (0, minimal_string_1.bddToSimpleBdd)(this);
     };
     return RootNode;
 }(abstract_node_1.AbstractNode));

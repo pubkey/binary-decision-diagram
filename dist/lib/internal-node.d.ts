@@ -2,7 +2,7 @@ import { Branches } from './branches';
 import { Parents } from './parents';
 import { RootNode } from './root-node';
 import { AbstractNode } from './abstract-node';
-import { NonLeafNode } from './types';
+import type { NonLeafNode } from './types';
 export declare class InternalNode extends AbstractNode {
     branches: Branches;
     parents: Parents;

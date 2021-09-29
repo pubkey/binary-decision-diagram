@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.ensureNodesNotStrictEqual = exports.Branches = void 0;
 /**
  * represents the branches of a single node
  */

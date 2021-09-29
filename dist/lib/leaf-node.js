@@ -3,16 +3,19 @@ var __extends = (this && this.__extends) || (function () {
     var extendStatics = function (d, b) {
         extendStatics = Object.setPrototypeOf ||
             ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
         return extendStatics(d, b);
     };
     return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
         extendStatics(d, b);
         function __() { this.constructor = d; }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.LeafNode = void 0;
 var parents_1 = require("./parents");
 var abstract_node_1 = require("./abstract-node");
 var util_1 = require("./util");
@@ -34,7 +37,7 @@ var LeafNode = /** @class */ (function (_super) {
         var parents = this.parents.getAll();
         parents.forEach(function (parent) {
             var branchKey = parent.branches.getKeyOfNode(_this);
-            var otherBranch = parent.branches.getBranch(util_1.oppositeBoolean(branchKey));
+            var otherBranch = parent.branches.getBranch((0, util_1.oppositeBoolean)(branchKey));
             _this.parents.remove(parent);
             parent.branches.setBranch(branchKey, otherBranch);
             if (parent.isInternalNode()) {

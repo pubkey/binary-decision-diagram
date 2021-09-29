@@ -8,6 +8,7 @@ while (t < 10000) {
 }
 */
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getNextCharId = exports.FIRST_CHAR_CODE_FOR_ID = exports.getCharOfValue = exports.getNumberOfChar = exports.getCharOfLevel = exports.CHAR_CODE_OFFSET = void 0;
 /*
 
 To have a really small string representation, we have to hack some stuff

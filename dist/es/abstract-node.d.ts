@@ -1,4 +1,4 @@
-import { NonRootNode, NodeType } from './types';
+import type { NonRootNode, NodeType } from './types';
 import { RootNode } from './root-node';
 import { InternalNode } from './internal-node';
 import { LeafNode } from './leaf-node';

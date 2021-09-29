@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.nodeToString = exports.bddToMinimalString = void 0;
 var string_format_1 = require("./string-format");
 var string_format_2 = require("./string-format");
 function bddToMinimalString(bdd) {
@@ -26,10 +27,10 @@ function bddToMinimalString(bdd) {
 }
 exports.bddToMinimalString = bddToMinimalString;
 function nodeToString(node, idByNode, lastCode) {
-    var nextId = string_format_1.getNextCharId(lastCode);
+    var nextId = (0, string_format_1.getNextCharId)(lastCode);
     switch (node.type) {
         case 'LeafNode':
-            var valueChar = string_format_1.getCharOfValue(node.asLeafNode().value);
+            var valueChar = (0, string_format_1.getCharOfValue)(node.asLeafNode().value);
             return {
                 id: nextId.char,
                 nextCode: nextId.nextCode,
@@ -41,7 +42,7 @@ function nodeToString(node, idByNode, lastCode) {
             return {
                 id: nextId.char,
                 nextCode: nextId.nextCode,
-                str: nextId.char + branch0Id + branch1Id + string_format_1.getCharOfLevel(node.level)
+                str: nextId.char + branch0Id + branch1Id + (0, string_format_1.getCharOfLevel)(node.level)
             };
         case 'RootNode':
             var branch0IdRoot = idByNode.get(node.asRootNode().branches.getBranch('0'));
@@ -49,7 +50,7 @@ function nodeToString(node, idByNode, lastCode) {
             return {
                 id: nextId.char,
                 nextCode: nextId.nextCode,
-                str: '' + branch0IdRoot + branch1IdRoot + string_format_1.getCharOfLevel(node.level)
+                str: '' + branch0IdRoot + branch1IdRoot + (0, string_format_1.getCharOfLevel)(node.level)
             };
         default:
             throw new Error('unknown node type');

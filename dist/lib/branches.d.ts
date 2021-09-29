@@ -1,4 +1,4 @@
-import { BooleanString, NonRootNode, NonLeafNode } from './types';
+import type { BooleanString, NonRootNode, NonLeafNode } from './types';
 import { AbstractNode } from './abstract-node';
 /**
  * represents the branches of a single node

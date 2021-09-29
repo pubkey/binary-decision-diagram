@@ -57,7 +57,7 @@ var Parents = /** @class */ (function () {
         get: function () {
             return this.parents.size;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     return Parents;

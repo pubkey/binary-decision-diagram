@@ -1,11 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.AbstractNode = void 0;
 var util_1 = require("./util");
 var find_similar_node_1 = require("./find-similar-node");
 var AbstractNode = /** @class */ (function () {
     function AbstractNode(level, rootNode, type) {
         this.level = level;
-        this.id = util_1.nextNodeId();
+        this.id = (0, util_1.nextNodeId)();
         this.deleted = false;
         this.type = type;
         this.rootNode = rootNode;
@@ -136,7 +137,7 @@ var AbstractNode = /** @class */ (function () {
         if (!nodesOfSameLevel) {
             nodesOfSameLevel = this.rootNode.getNodesOfLevel(this.level);
         }
-        var other = find_similar_node_1.findSimilarNode(this, nodesOfSameLevel);
+        var other = (0, find_similar_node_1.findSimilarNode)(this, nodesOfSameLevel);
         if (other) {
             // console.log('applyEliminationRule() remove:' + this.id + '; other: ' + other.id);
             // keep 'other', remove 'this'

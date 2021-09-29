@@ -11,6 +11,7 @@ var __values = (this && this.__values) || function(o) {
     throw new TypeError(s ? "Object is not iterable." : "Symbol.iterator is not defined.");
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.Parents = void 0;
 /**
  * represents the parents of a single node
  */
@@ -59,7 +60,7 @@ var Parents = /** @class */ (function () {
         get: function () {
             return this.parents.size;
         },
-        enumerable: true,
+        enumerable: false,
         configurable: true
     });
     return Parents;

@@ -63,12 +63,13 @@ var __read = (this && this.__read) || function (o, n) {
     return ar;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.getArrayWithIndexes = exports.changeKeyOrder = exports.shuffleBooleanOrdering = exports.optimizeBruteForce = exports.defaultCompareResults = void 0;
 var create_bdd_from_truth_table_1 = require("./create-bdd-from-truth-table");
 var util_1 = require("./util");
 /**
  * returns the bdd with less nodes
  */
-exports.defaultCompareResults = function (a, b) {
+var defaultCompareResults = function (a, b) {
     if (a.countNodes() <= b.countNodes()) {
         return a;
     }
@@ -76,6 +77,7 @@ exports.defaultCompareResults = function (a, b) {
         return b;
     }
 };
+exports.defaultCompareResults = defaultCompareResults;
 /**
  * optimises the ordering of the boolean functions
  * by randomly sorting the array
@@ -88,7 +90,7 @@ function optimizeBruteForce(_a) {
         return __generator(this, function (_g) {
             switch (_g.label) {
                 case 0:
-                    initialBdd = create_bdd_from_truth_table_1.createBddFromTruthTable(truthTable);
+                    initialBdd = (0, create_bdd_from_truth_table_1.createBddFromTruthTable)(truthTable);
                     afterBddCreation(initialBdd);
                     initialBdd.minimize();
                     currentBestResult = {
@@ -102,8 +104,8 @@ function optimizeBruteForce(_a) {
                     t = 0;
                     _loop_1 = function () {
                         var shuffledOrdering, nextBdd, newNodesByLevel, lastLevel, newSortedLevels, lastLevelSet, betterBdd;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
+                        return __generator(this, function (_h) {
+                            switch (_h.label) {
                                 case 0:
                                     t++;
                                     if (log) {
@@ -111,9 +113,9 @@ function optimizeBruteForce(_a) {
                                         console.log('optimizeBruteForce() itterate once');
                                     }
                                     shuffledOrdering = shuffleBooleanOrdering(truthTable);
-                                    nextBdd = create_bdd_from_truth_table_1.createBddFromTruthTable(shuffledOrdering.newTable);
+                                    nextBdd = (0, create_bdd_from_truth_table_1.createBddFromTruthTable)(shuffledOrdering.newTable);
                                     newNodesByLevel = new Map();
-                                    lastLevel = util_1.lastOfArray(nextBdd.getLevels());
+                                    lastLevel = (0, util_1.lastOfArray)(nextBdd.getLevels());
                                     newSortedLevels = [];
                                     nextBdd.getLevels()
                                         .filter(function (level) { return level !== lastLevel; })
@@ -142,7 +144,7 @@ function optimizeBruteForce(_a) {
                                     }
                                     return [4 /*yield*/, compareResults(currentBestResult.bdd, nextBdd)];
                                 case 1:
-                                    betterBdd = _a.sent();
+                                    betterBdd = _h.sent();
                                     if (betterBdd.type !== 'RootNode') {
                                         throw new Error('compareResults did not return a bdd');
                                     }
@@ -176,9 +178,9 @@ function optimizeBruteForce(_a) {
 exports.optimizeBruteForce = optimizeBruteForce;
 function shuffleBooleanOrdering(truthTable) {
     var e_1, _a;
-    var firstKey = util_1.firstKeyOfMap(truthTable);
+    var firstKey = (0, util_1.firstKeyOfMap)(truthTable);
     var arrayWithIndexes = getArrayWithIndexes(firstKey.length);
-    var shuffled = util_1.shuffleArray(arrayWithIndexes);
+    var shuffled = (0, util_1.shuffleArray)(arrayWithIndexes);
     var mapping = {};
     var mappingBeforeToAfter = {};
     shuffled.forEach(function (indexBefore, indexAfter) {

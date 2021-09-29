@@ -1,6 +1,6 @@
 import { AbstractNode } from './abstract-node';
 import { Branches } from './branches';
-import { NonRootNode, ResolverFunctions, SimpleBdd } from './types';
+import type { NonRootNode, ResolverFunctions, SimpleBdd } from './types';
 import { LeafNode } from './leaf-node';
 export declare class RootNode extends AbstractNode {
     branches: Branches;

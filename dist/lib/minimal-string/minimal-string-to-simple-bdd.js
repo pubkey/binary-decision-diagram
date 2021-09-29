@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.minimalStringToSimpleBdd = void 0;
 var util_1 = require("../util");
 var string_format_1 = require("./string-format");
 function minimalStringToSimpleBdd(str) {
@@ -8,22 +9,22 @@ function minimalStringToSimpleBdd(str) {
     var leafNodeAmount = parseInt(str.charAt(0) + str.charAt(1), 10);
     var lastLeafNodeChar = (2 + leafNodeAmount * 2);
     var leafNodeChars = str.substring(2, lastLeafNodeChar);
-    var leafNodeChunks = util_1.splitStringToChunks(leafNodeChars, 2);
+    var leafNodeChunks = (0, util_1.splitStringToChunks)(leafNodeChars, 2);
     for (var i = 0; i < leafNodeChunks.length; i++) {
         var chunk = leafNodeChunks[i];
         var id = chunk.charAt(0);
-        var value = string_format_1.getNumberOfChar(chunk.charAt(1));
+        var value = (0, string_format_1.getNumberOfChar)(chunk.charAt(1));
         nodesById.set(id, value);
     }
     // parse internal nodes
     var internalNodeChars = str.substring(lastLeafNodeChar, str.length - 3);
-    var internalNodeChunks = util_1.splitStringToChunks(internalNodeChars, 4);
+    var internalNodeChunks = (0, util_1.splitStringToChunks)(internalNodeChars, 4);
     for (var i = 0; i < internalNodeChunks.length; i++) {
         var chunk = internalNodeChunks[i];
         var id = chunk.charAt(0);
         var idOf0Branch = chunk.charAt(1);
         var idOf1Branch = chunk.charAt(2);
-        var level = string_format_1.getNumberOfChar(chunk.charAt(3));
+        var level = (0, string_format_1.getNumberOfChar)(chunk.charAt(3));
         if (!nodesById.has(idOf0Branch)) {
             throw new Error('missing node with id ' + idOf0Branch);
         }
@@ -43,7 +44,7 @@ function minimalStringToSimpleBdd(str) {
     var last3 = str.slice(-3);
     var idOf0 = last3.charAt(0);
     var idOf1 = last3.charAt(1);
-    var levelOfRoot = string_format_1.getNumberOfChar(last3.charAt(2));
+    var levelOfRoot = (0, string_format_1.getNumberOfChar)(last3.charAt(2));
     var nodeOf0 = nodesById.get(idOf0);
     var nodeOf1 = nodesById.get(idOf1);
     var rootNode = {

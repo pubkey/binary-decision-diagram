@@ -1,3 +1,3 @@
 import { RootNode } from './root-node';
-import { TruthTable } from './types';
+import type { TruthTable } from './types';
 export declare function createBddFromTruthTable(truthTable: TruthTable): RootNode;

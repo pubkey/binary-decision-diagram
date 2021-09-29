@@ -1,4 +1,4 @@
-import { BooleanString } from './types';
+import type { BooleanString } from './types';
 export declare function booleanStringToBoolean(str: BooleanString): boolean;
 export declare function booleanToBooleanString(b: boolean): BooleanString;
 export declare function oppositeBoolean(input: BooleanString): BooleanString;

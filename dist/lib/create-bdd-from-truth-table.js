@@ -27,6 +27,7 @@ var __read = (this && this.__read) || function (o, n) {
     return ar;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.createBddFromTruthTable = void 0;
 var root_node_1 = require("./root-node");
 var util_1 = require("./util");
 var internal_node_1 = require("./internal-node");
@@ -55,7 +56,7 @@ function createBddFromTruthTable(truthTable) {
                 lastNode = lastNode.branches.getBranch(state);
             }
             // last node is leaf-node
-            var lastState = util_1.lastChar(stateSet);
+            var lastState = (0, util_1.lastChar)(stateSet);
             if (lastNode.branches.getBranch(lastState)) {
                 throw new Error('leafNode already exists, this should not happen');
             }
