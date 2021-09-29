@@ -37,11 +37,11 @@
     "test": "mocha -r ts-node/register test/unit/index.test.ts --timeout 40000 --bail"
   },
   "devDependencies": {
-    "@types/mocha": "8.0.4",
+    "@types/mocha": "9.0.0",
     "@types/node": "13.13.5",
     "assert": "2.0.0",
     "async-test-util": "1.7.3",
-    "mocha": "8.2.1",
+    "mocha": "9.1.2",
     "rimraf": "3.0.2",
     "ts-node": "9.0.0",
     "tslint": "6.1.3",
