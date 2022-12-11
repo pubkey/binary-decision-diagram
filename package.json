@@ -41,7 +41,7 @@
     "@types/node": "18.11.13",
     "assert": "2.0.0",
     "async-test-util": "2.0.0",
-    "mocha": "10.1.0",
+    "mocha": "10.2.0",
     "rimraf": "3.0.2",
     "ts-node": "10.9.1",
     "tslint": "6.1.3",
