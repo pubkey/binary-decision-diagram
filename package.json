@@ -1,6 +1,6 @@
 {
   "name": "binary-decision-diagram",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A library to create, minimize and optimize binary decision diagrams",
   "keywords": [
     "binary decision diagram",
@@ -31,8 +31,8 @@
   "scripts": {
     "lint": "tslint --project .",
     "lint:fix": "tslint --project . --fix",
-    "transpile": "tsc -p ./ && echo '# transpile es5 (require) sucess!'",
-    "transpile:es": "tsc -p ./ --module ES6 --outDir ./dist/es && echo '# transpile es (modules) sucess!'",
+    "transpile": "tsc -p ./ --module commonjs && echo '# transpile es5 (require) sucess!'",
+    "transpile:es": "tsc -p ./ --outDir ./dist/es && echo '# transpile es (modules) sucess!'",
     "build": "rimraf -r ./dist && npm run transpile && npm run transpile:es",
     "test": "mocha -r ts-node/register test/unit/index.test.ts --timeout 40000 --bail"
   },

@@ -1,11 +1,14 @@
-import { AbstractNode } from './abstract-node';
-import { Branches } from './branches';
-import { lastOfArray, booleanToBooleanString } from './util';
-import { bddToSimpleBdd } from './minimal-string';
-export class RootNode extends AbstractNode {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.RootNode = void 0;
+const abstract_node_1 = require("./abstract-node");
+const branches_1 = require("./branches");
+const util_1 = require("./util");
+const minimal_string_1 = require("./minimal-string");
+class RootNode extends abstract_node_1.AbstractNode {
     constructor() {
         super(0, null, 'RootNode');
-        this.branches = new Branches(this);
+        this.branches = new branches_1.Branches(this);
         this.levels = [];
         this.nodesByLevel = new Map();
         this.levels.push(0);
@@ -61,7 +64,7 @@ export class RootNode extends AbstractNode {
                 console.log('minimize() itterate once');
             }
             let successCount = 0;
-            let lastLevel = lastOfArray(this.getLevels());
+            let lastLevel = (0, util_1.lastOfArray)(this.getLevels());
             while (lastLevel > 0) {
                 const nodes = this.getNodesOfLevel(lastLevel);
                 if (logState) {
@@ -111,7 +114,7 @@ export class RootNode extends AbstractNode {
         }
     }
     getLeafNodes() {
-        const lastLevel = lastOfArray(this.getLevels());
+        const lastLevel = (0, util_1.lastOfArray)(this.getLevels());
         const leafNodes = this.getNodesOfLevel(lastLevel).reverse();
         return leafNodes;
     }
@@ -140,7 +143,7 @@ export class RootNode extends AbstractNode {
         let currentNode = this;
         while (true) {
             const booleanResult = fns[currentNode.level](booleanFunctionInput);
-            const branchKey = booleanToBooleanString(booleanResult);
+            const branchKey = (0, util_1.booleanToBooleanString)(booleanResult);
             currentNode = currentNode.branches.getBranch(branchKey);
             if (currentNode.isLeafNode()) {
                 return currentNode.asLeafNode().value;
@@ -148,7 +151,8 @@ export class RootNode extends AbstractNode {
         }
     }
     toSimpleBdd() {
-        return bddToSimpleBdd(this);
+        return (0, minimal_string_1.bddToSimpleBdd)(this);
     }
 }
+exports.RootNode = RootNode;
 //# sourceMappingURL=root-node.js.map

@@ -1,9 +1,12 @@
-import { createBddFromTruthTable } from './create-bdd-from-truth-table';
-import { firstKeyOfMap, shuffleArray, lastOfArray } from './util';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getArrayWithIndexes = exports.changeKeyOrder = exports.shuffleBooleanOrdering = exports.optimizeBruteForce = exports.defaultCompareResults = void 0;
+const create_bdd_from_truth_table_1 = require("./create-bdd-from-truth-table");
+const util_1 = require("./util");
 /**
  * returns the bdd with less nodes
  */
-export const defaultCompareResults = function (a, b) {
+const defaultCompareResults = function (a, b) {
     if (a.countNodes() <= b.countNodes()) {
         return a;
     }
@@ -11,13 +14,14 @@ export const defaultCompareResults = function (a, b) {
         return b;
     }
 };
+exports.defaultCompareResults = defaultCompareResults;
 /**
  * optimises the ordering of the boolean functions
  * by randomly sorting the array
  * and checking the resulting bdd
  */
-export async function optimizeBruteForce({ truthTable, iterations = Infinity, onBetterBdd = () => null, compareResults = defaultCompareResults, afterBddCreation = () => null, log = false }) {
-    const initialBdd = createBddFromTruthTable(truthTable);
+async function optimizeBruteForce({ truthTable, iterations = Infinity, onBetterBdd = () => null, compareResults = exports.defaultCompareResults, afterBddCreation = () => null, log = false }) {
+    const initialBdd = (0, create_bdd_from_truth_table_1.createBddFromTruthTable)(truthTable);
     afterBddCreation(initialBdd);
     initialBdd.minimize();
     let currentBestResult = {
@@ -36,10 +40,10 @@ export async function optimizeBruteForce({ truthTable, iterations = Infinity, on
             console.log('optimizeBruteForce() itterate once');
         }
         const shuffledOrdering = shuffleBooleanOrdering(truthTable);
-        const nextBdd = createBddFromTruthTable(shuffledOrdering.newTable);
+        const nextBdd = (0, create_bdd_from_truth_table_1.createBddFromTruthTable)(shuffledOrdering.newTable);
         // change the levels of each node
         const newNodesByLevel = new Map();
-        const lastLevel = lastOfArray(nextBdd.getLevels());
+        const lastLevel = (0, util_1.lastOfArray)(nextBdd.getLevels());
         const newSortedLevels = [];
         nextBdd.getLevels()
             .filter(level => level !== lastLevel)
@@ -84,10 +88,11 @@ export async function optimizeBruteForce({ truthTable, iterations = Infinity, on
     }
     return currentBestResult;
 }
-export function shuffleBooleanOrdering(truthTable) {
-    const firstKey = firstKeyOfMap(truthTable);
+exports.optimizeBruteForce = optimizeBruteForce;
+function shuffleBooleanOrdering(truthTable) {
+    const firstKey = (0, util_1.firstKeyOfMap)(truthTable);
     const arrayWithIndexes = getArrayWithIndexes(firstKey.length);
-    const shuffled = shuffleArray(arrayWithIndexes);
+    const shuffled = (0, util_1.shuffleArray)(arrayWithIndexes);
     const mapping = {};
     const mappingBeforeToAfter = {};
     shuffled.forEach((indexBefore, indexAfter) => {
@@ -105,7 +110,8 @@ export function shuffleBooleanOrdering(truthTable) {
         mappingBeforeToAfter
     };
 }
-export function changeKeyOrder(oldKey, mappingBeforeToAfter) {
+exports.shuffleBooleanOrdering = shuffleBooleanOrdering;
+function changeKeyOrder(oldKey, mappingBeforeToAfter) {
     const chars = oldKey
         .split('')
         .map((char, indexBefore) => {
@@ -120,7 +126,8 @@ export function changeKeyOrder(oldKey, mappingBeforeToAfter) {
         .join('');
     return chars;
 }
-export function getArrayWithIndexes(size) {
+exports.changeKeyOrder = changeKeyOrder;
+function getArrayWithIndexes(size) {
     const ret = [];
     let last = 0;
     while (last < size) {
@@ -129,4 +136,5 @@ export function getArrayWithIndexes(size) {
     }
     return ret;
 }
+exports.getArrayWithIndexes = getArrayWithIndexes;
 //# sourceMappingURL=optimize-brute-force.js.map

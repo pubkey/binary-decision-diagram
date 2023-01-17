@@ -1,11 +1,14 @@
-import { Branches } from './branches';
-import { Parents } from './parents';
-import { AbstractNode } from './abstract-node';
-export class InternalNode extends AbstractNode {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.InternalNode = void 0;
+const branches_1 = require("./branches");
+const parents_1 = require("./parents");
+const abstract_node_1 = require("./abstract-node");
+class InternalNode extends abstract_node_1.AbstractNode {
     constructor(level, rootNode, parent) {
         super(level, rootNode, 'InternalNode');
-        this.branches = new Branches(this);
-        this.parents = new Parents(this);
+        this.branches = new branches_1.Branches(this);
+        this.parents = new parents_1.Parents(this);
         this.parents.add(parent);
     }
     /**
@@ -39,4 +42,5 @@ export class InternalNode extends AbstractNode {
         return false;
     }
 }
+exports.InternalNode = InternalNode;
 //# sourceMappingURL=internal-node.js.map

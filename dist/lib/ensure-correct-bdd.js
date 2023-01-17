@@ -1,8 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getNodesRecursive = exports.ensureCorrectBdd = void 0;
 /**
  * run some tests on the bdd
  * to ensure everything is correct
  */
-export function ensureCorrectBdd(bdd) {
+function ensureCorrectBdd(bdd) {
     const jsonString = JSON.stringify(bdd.toJSON(true));
     let allNodes = [];
     const nodesById = new Map();
@@ -81,7 +84,8 @@ export function ensureCorrectBdd(bdd) {
             'bdd includes a deleted node');
     }
 }
-export function getNodesRecursive(node, set = new Set()) {
+exports.ensureCorrectBdd = ensureCorrectBdd;
+function getNodesRecursive(node, set = new Set()) {
     set.add(node);
     if (!node.isLeafNode()) {
         const useNode = node;
@@ -94,4 +98,5 @@ export function getNodesRecursive(node, set = new Set()) {
     }
     return set;
 }
+exports.getNodesRecursive = getNodesRecursive;
 //# sourceMappingURL=ensure-correct-bdd.js.map

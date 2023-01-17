@@ -1,9 +1,12 @@
-import { RootNode } from './root-node';
-import { lastChar } from './util';
-import { InternalNode } from './internal-node';
-import { LeafNode } from './leaf-node';
-export function createBddFromTruthTable(truthTable) {
-    const root = new RootNode();
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.createBddFromTruthTable = void 0;
+const root_node_1 = require("./root-node");
+const util_1 = require("./util");
+const internal_node_1 = require("./internal-node");
+const leaf_node_1 = require("./leaf-node");
+function createBddFromTruthTable(truthTable) {
+    const root = new root_node_1.RootNode();
     const firstKey = truthTable.keys().next().value;
     const keyLength = firstKey.length;
     const mustBeSize = Math.pow(2, keyLength);
@@ -18,17 +21,18 @@ export function createBddFromTruthTable(truthTable) {
             const state = stateSet.charAt(i);
             // if node for this state-char not exists, add new one
             if (!lastNode.branches.getBranch(state)) {
-                lastNode.branches.setBranch(state, new InternalNode(level, root, lastNode));
+                lastNode.branches.setBranch(state, new internal_node_1.InternalNode(level, root, lastNode));
             }
             lastNode = lastNode.branches.getBranch(state);
         }
         // last node is leaf-node
-        const lastState = lastChar(stateSet);
+        const lastState = (0, util_1.lastChar)(stateSet);
         if (lastNode.branches.getBranch(lastState)) {
             throw new Error('leafNode already exists, this should not happen');
         }
-        lastNode.branches.setBranch(lastState, new LeafNode(stateSet.length, root, value, lastNode));
+        lastNode.branches.setBranch(lastState, new leaf_node_1.LeafNode(stateSet.length, root, value, lastNode));
     }
     return root;
 }
+exports.createBddFromTruthTable = createBddFromTruthTable;
 //# sourceMappingURL=create-bdd-from-truth-table.js.map

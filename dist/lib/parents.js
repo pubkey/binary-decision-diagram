@@ -1,7 +1,10 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Parents = void 0;
 /**
  * represents the parents of a single node
  */
-export class Parents {
+class Parents {
     constructor(node) {
         this.node = node;
         this.parents = new Set();
@@ -35,4 +38,5 @@ export class Parents {
         return this.parents.size;
     }
 }
+exports.Parents = Parents;
 //# sourceMappingURL=parents.js.map

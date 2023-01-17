@@ -1,8 +1,11 @@
-import { getCharOfLevel, getCharOfValue, getNextCharId } from './string-format';
-import { FIRST_CHAR_CODE_FOR_ID } from './string-format';
-export function bddToMinimalString(bdd) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.nodeToString = exports.bddToMinimalString = void 0;
+const string_format_1 = require("./string-format");
+const string_format_2 = require("./string-format");
+function bddToMinimalString(bdd) {
     let ret = '';
-    let currentCharCode = FIRST_CHAR_CODE_FOR_ID;
+    let currentCharCode = string_format_2.FIRST_CHAR_CODE_FOR_ID;
     // add leaf node count
     const leafNodeAmount = bdd.getLeafNodes().length;
     if (leafNodeAmount > 99) {
@@ -22,11 +25,12 @@ export function bddToMinimalString(bdd) {
     });
     return ret;
 }
-export function nodeToString(node, idByNode, lastCode) {
-    const nextId = getNextCharId(lastCode);
+exports.bddToMinimalString = bddToMinimalString;
+function nodeToString(node, idByNode, lastCode) {
+    const nextId = (0, string_format_1.getNextCharId)(lastCode);
     switch (node.type) {
         case 'LeafNode':
-            const valueChar = getCharOfValue(node.asLeafNode().value);
+            const valueChar = (0, string_format_1.getCharOfValue)(node.asLeafNode().value);
             return {
                 id: nextId.char,
                 nextCode: nextId.nextCode,
@@ -38,7 +42,7 @@ export function nodeToString(node, idByNode, lastCode) {
             return {
                 id: nextId.char,
                 nextCode: nextId.nextCode,
-                str: nextId.char + branch0Id + branch1Id + getCharOfLevel(node.level)
+                str: nextId.char + branch0Id + branch1Id + (0, string_format_1.getCharOfLevel)(node.level)
             };
         case 'RootNode':
             const branch0IdRoot = idByNode.get(node.asRootNode().branches.getBranch('0'));
@@ -46,10 +50,11 @@ export function nodeToString(node, idByNode, lastCode) {
             return {
                 id: nextId.char,
                 nextCode: nextId.nextCode,
-                str: '' + branch0IdRoot + branch1IdRoot + getCharOfLevel(node.level)
+                str: '' + branch0IdRoot + branch1IdRoot + (0, string_format_1.getCharOfLevel)(node.level)
             };
         default:
             throw new Error('unknown node type');
     }
 }
+exports.nodeToString = nodeToString;
 //# sourceMappingURL=bdd-to-minimal-string.js.map

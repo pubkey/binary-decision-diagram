@@ -1,3 +1,4 @@
+"use strict";
 /*
 let t = 0;
 while (t < 10000) {
@@ -6,6 +7,8 @@ while (t < 10000) {
     t++;
 }
 */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getNextCharId = exports.FIRST_CHAR_CODE_FOR_ID = exports.getCharOfValue = exports.getNumberOfChar = exports.getCharOfLevel = exports.CHAR_CODE_OFFSET = void 0;
 /*
 
 To have a really small string representation, we have to hack some stuff
@@ -26,21 +29,24 @@ Rules for the string:
 
 */
 // we use this because 39 is the quotes which causes problems
-export const CHAR_CODE_OFFSET = 40; // String.fromCharCode(33) === ')'
-export function getCharOfLevel(level) {
-    const charCode = CHAR_CODE_OFFSET + level;
+exports.CHAR_CODE_OFFSET = 40; // String.fromCharCode(33) === ')'
+function getCharOfLevel(level) {
+    const charCode = exports.CHAR_CODE_OFFSET + level;
     return String.fromCharCode(charCode);
 }
-export function getNumberOfChar(char) {
+exports.getCharOfLevel = getCharOfLevel;
+function getNumberOfChar(char) {
     const charCode = char.charCodeAt(0);
-    return charCode - CHAR_CODE_OFFSET;
+    return charCode - exports.CHAR_CODE_OFFSET;
 }
-export function getCharOfValue(value) {
-    const charCode = CHAR_CODE_OFFSET + value;
+exports.getNumberOfChar = getNumberOfChar;
+function getCharOfValue(value) {
+    const charCode = exports.CHAR_CODE_OFFSET + value;
     return String.fromCharCode(charCode);
 }
-export const FIRST_CHAR_CODE_FOR_ID = 97; // String.fromCharCode(97) === 'a'
-export function getNextCharId(lastCode) {
+exports.getCharOfValue = getCharOfValue;
+exports.FIRST_CHAR_CODE_FOR_ID = 97; // String.fromCharCode(97) === 'a'
+function getNextCharId(lastCode) {
     // jump these codes because they look strange
     if (lastCode >= 128 && lastCode <= 160) {
         lastCode = 161;
@@ -51,4 +57,5 @@ export function getNextCharId(lastCode) {
         nextCode: lastCode + 1
     };
 }
+exports.getNextCharId = getNextCharId;
 //# sourceMappingURL=string-format.js.map

@@ -1,9 +1,12 @@
-import { nextNodeId } from './util';
-import { findSimilarNode } from './find-similar-node';
-export class AbstractNode {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AbstractNode = void 0;
+const util_1 = require("./util");
+const find_similar_node_1 = require("./find-similar-node");
+class AbstractNode {
     constructor(level, rootNode, type) {
         this.level = level;
-        this.id = nextNodeId();
+        this.id = (0, util_1.nextNodeId)();
         this.deleted = false;
         this.type = type;
         this.rootNode = rootNode;
@@ -130,7 +133,7 @@ export class AbstractNode {
         if (!nodesOfSameLevel) {
             nodesOfSameLevel = this.rootNode.getNodesOfLevel(this.level);
         }
-        const other = findSimilarNode(this, nodesOfSameLevel);
+        const other = (0, find_similar_node_1.findSimilarNode)(this, nodesOfSameLevel);
         if (other) {
             // console.log('applyEliminationRule() remove:' + this.id + '; other: ' + other.id);
             // keep 'other', remove 'this'
@@ -163,4 +166,5 @@ export class AbstractNode {
         }
     }
 }
+exports.AbstractNode = AbstractNode;
 //# sourceMappingURL=abstract-node.js.map
