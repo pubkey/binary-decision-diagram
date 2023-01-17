@@ -1,52 +1,29 @@
-"use strict";
-var __extends = (this && this.__extends) || (function () {
-    var extendStatics = function (d, b) {
-        extendStatics = Object.setPrototypeOf ||
-            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-            function (d, b) { for (var p in b) if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p]; };
-        return extendStatics(d, b);
-    };
-    return function (d, b) {
-        if (typeof b !== "function" && b !== null)
-            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
-        extendStatics(d, b);
-        function __() { this.constructor = d; }
-        d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.LeafNode = void 0;
-var parents_1 = require("./parents");
-var abstract_node_1 = require("./abstract-node");
-var util_1 = require("./util");
-var LeafNode = /** @class */ (function (_super) {
-    __extends(LeafNode, _super);
-    function LeafNode(level, rootNode, value, parent) {
-        var _this = _super.call(this, level, rootNode, 'LeafNode') || this;
-        _this.value = value;
-        _this.parents = new parents_1.Parents(_this);
-        _this.parents.add(parent);
-        return _this;
+import { Parents } from './parents';
+import { AbstractNode } from './abstract-node';
+import { oppositeBoolean } from './util';
+export class LeafNode extends AbstractNode {
+    constructor(level, rootNode, value, parent) {
+        super(level, rootNode, 'LeafNode');
+        this.value = value;
+        this.parents = new Parents(this);
+        this.parents.add(parent);
     }
-    LeafNode.prototype.removeIfValueEquals = function (value) {
-        var _this = this;
+    removeIfValueEquals(value) {
         this.ensureNotDeleted();
         if (this.value !== value) {
             return false;
         }
-        var parents = this.parents.getAll();
-        parents.forEach(function (parent) {
-            var branchKey = parent.branches.getKeyOfNode(_this);
-            var otherBranch = parent.branches.getBranch((0, util_1.oppositeBoolean)(branchKey));
-            _this.parents.remove(parent);
+        const parents = this.parents.getAll();
+        parents.forEach(parent => {
+            const branchKey = parent.branches.getKeyOfNode(this);
+            const otherBranch = parent.branches.getBranch(oppositeBoolean(branchKey));
+            this.parents.remove(parent);
             parent.branches.setBranch(branchKey, otherBranch);
             if (parent.isInternalNode()) {
                 parent.applyReductionRule();
             }
         });
         return true;
-    };
-    return LeafNode;
-}(abstract_node_1.AbstractNode));
-exports.LeafNode = LeafNode;
+    }
+}
 //# sourceMappingURL=leaf-node.js.map

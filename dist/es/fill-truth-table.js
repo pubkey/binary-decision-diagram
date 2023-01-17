@@ -4,9 +4,9 @@ import { minBinaryWithLength, maxBinaryWithLength, getNextStateSet } from './uti
  * with the given value
  */
 export function fillTruthTable(truthTable, inputLength, value) {
-    var endInput = maxBinaryWithLength(inputLength);
-    var currentInput = minBinaryWithLength(inputLength);
-    var done = false;
+    const endInput = maxBinaryWithLength(inputLength);
+    let currentInput = minBinaryWithLength(inputLength);
+    let done = false;
     while (!done) {
         if (!truthTable.has(currentInput)) {
             truthTable.set(currentInput, value);

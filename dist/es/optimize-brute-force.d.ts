@@ -4,12 +4,12 @@ import { RootNode } from './root-node';
  * a function that is called each time
  * a 'better' bdd was found
  */
-export declare type OptmisiationCallback = (bdd: OptimisationResult) => void;
+export type OptmisiationCallback = (bdd: OptimisationResult) => void;
 export interface OptimisationResult {
     bdd: RootNode;
     truthTable: TruthTable;
 }
-export declare type CompareResultsFunction = (a: RootNode, b: RootNode) => RootNode | Promise<RootNode>;
+export type CompareResultsFunction = (a: RootNode, b: RootNode) => RootNode | Promise<RootNode>;
 /**
  * returns the bdd with less nodes
  */
@@ -28,10 +28,10 @@ export interface OptimizeBruteForceInput {
  * and checking the resulting bdd
  */
 export declare function optimizeBruteForce({ truthTable, iterations, onBetterBdd, compareResults, afterBddCreation, log }: OptimizeBruteForceInput): Promise<OptimisationResult>;
-export declare type BooleanFunctionReorderMapping = {
+export type BooleanFunctionReorderMapping = {
     [indexAfter: number]: number;
 };
-export declare type BooleanFunctionReorderMappingReverse = {
+export type BooleanFunctionReorderMappingReverse = {
     [indexBefore: number]: number;
 };
 export declare function shuffleBooleanOrdering(truthTable: TruthTable): {

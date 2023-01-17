@@ -8,8 +8,8 @@ export function bddToSimpleBdd(bdd) {
  * @recursive
  */
 export function nodeToSimpleBddNode(node) {
-    var branch0 = node.branches.getBranch('0');
-    var branch1 = node.branches.getBranch('1');
+    const branch0 = node.branches.getBranch('0');
+    const branch1 = node.branches.getBranch('1');
     return {
         l: node.level,
         0: branch0.isLeafNode() ? branch0.asLeafNode().value : nodeToSimpleBddNode(branch0),

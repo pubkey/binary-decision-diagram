@@ -1,39 +1,36 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.minimalStringToSimpleBdd = void 0;
-var util_1 = require("../util");
-var string_format_1 = require("./string-format");
-function minimalStringToSimpleBdd(str) {
-    var nodesById = new Map();
+import { splitStringToChunks } from '../util';
+import { getNumberOfChar } from './string-format';
+export function minimalStringToSimpleBdd(str) {
+    const nodesById = new Map();
     // parse leaf nodes
-    var leafNodeAmount = parseInt(str.charAt(0) + str.charAt(1), 10);
-    var lastLeafNodeChar = (2 + leafNodeAmount * 2);
-    var leafNodeChars = str.substring(2, lastLeafNodeChar);
-    var leafNodeChunks = (0, util_1.splitStringToChunks)(leafNodeChars, 2);
-    for (var i = 0; i < leafNodeChunks.length; i++) {
-        var chunk = leafNodeChunks[i];
-        var id = chunk.charAt(0);
-        var value = (0, string_format_1.getNumberOfChar)(chunk.charAt(1));
+    const leafNodeAmount = parseInt(str.charAt(0) + str.charAt(1), 10);
+    const lastLeafNodeChar = (2 + leafNodeAmount * 2);
+    const leafNodeChars = str.substring(2, lastLeafNodeChar);
+    const leafNodeChunks = splitStringToChunks(leafNodeChars, 2);
+    for (let i = 0; i < leafNodeChunks.length; i++) {
+        const chunk = leafNodeChunks[i];
+        const id = chunk.charAt(0);
+        const value = getNumberOfChar(chunk.charAt(1));
         nodesById.set(id, value);
     }
     // parse internal nodes
-    var internalNodeChars = str.substring(lastLeafNodeChar, str.length - 3);
-    var internalNodeChunks = (0, util_1.splitStringToChunks)(internalNodeChars, 4);
-    for (var i = 0; i < internalNodeChunks.length; i++) {
-        var chunk = internalNodeChunks[i];
-        var id = chunk.charAt(0);
-        var idOf0Branch = chunk.charAt(1);
-        var idOf1Branch = chunk.charAt(2);
-        var level = (0, string_format_1.getNumberOfChar)(chunk.charAt(3));
+    const internalNodeChars = str.substring(lastLeafNodeChar, str.length - 3);
+    const internalNodeChunks = splitStringToChunks(internalNodeChars, 4);
+    for (let i = 0; i < internalNodeChunks.length; i++) {
+        const chunk = internalNodeChunks[i];
+        const id = chunk.charAt(0);
+        const idOf0Branch = chunk.charAt(1);
+        const idOf1Branch = chunk.charAt(2);
+        const level = getNumberOfChar(chunk.charAt(3));
         if (!nodesById.has(idOf0Branch)) {
             throw new Error('missing node with id ' + idOf0Branch);
         }
         if (!nodesById.has(idOf1Branch)) {
             throw new Error('missing node with id ' + idOf1Branch);
         }
-        var node0 = nodesById.get(idOf0Branch);
-        var node1 = nodesById.get(idOf1Branch);
-        var node = {
+        const node0 = nodesById.get(idOf0Branch);
+        const node1 = nodesById.get(idOf1Branch);
+        const node = {
             l: level,
             0: node0,
             1: node1
@@ -41,18 +38,17 @@ function minimalStringToSimpleBdd(str) {
         nodesById.set(id, node);
     }
     // parse root node
-    var last3 = str.slice(-3);
-    var idOf0 = last3.charAt(0);
-    var idOf1 = last3.charAt(1);
-    var levelOfRoot = (0, string_format_1.getNumberOfChar)(last3.charAt(2));
-    var nodeOf0 = nodesById.get(idOf0);
-    var nodeOf1 = nodesById.get(idOf1);
-    var rootNode = {
+    const last3 = str.slice(-3);
+    const idOf0 = last3.charAt(0);
+    const idOf1 = last3.charAt(1);
+    const levelOfRoot = getNumberOfChar(last3.charAt(2));
+    const nodeOf0 = nodesById.get(idOf0);
+    const nodeOf1 = nodesById.get(idOf1);
+    const rootNode = {
         l: levelOfRoot,
         0: nodeOf0,
         1: nodeOf1,
     };
     return rootNode;
 }
-exports.minimalStringToSimpleBdd = minimalStringToSimpleBdd;
 //# sourceMappingURL=minimal-string-to-simple-bdd.js.map

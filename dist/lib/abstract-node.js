@@ -1,12 +1,9 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.AbstractNode = void 0;
-var util_1 = require("./util");
-var find_similar_node_1 = require("./find-similar-node");
-var AbstractNode = /** @class */ (function () {
-    function AbstractNode(level, rootNode, type) {
+import { nextNodeId } from './util';
+import { findSimilarNode } from './find-similar-node';
+export class AbstractNode {
+    constructor(level, rootNode, type) {
         this.level = level;
-        this.id = (0, util_1.nextNodeId)();
+        this.id = nextNodeId();
         this.deleted = false;
         this.type = type;
         this.rootNode = rootNode;
@@ -14,26 +11,25 @@ var AbstractNode = /** @class */ (function () {
             this.rootNode.addNode(this);
         }
     }
-    AbstractNode.prototype.isEqualToOtherNode = function (otherNode, 
+    isEqualToOtherNode(otherNode, 
     // optimisation shortcut, is faster if own string already known
-    ownString) {
-        if (ownString === void 0) { ownString = this.toString(); }
-        var ret = ownString === otherNode.toString();
+    ownString = this.toString()) {
+        const ret = ownString === otherNode.toString();
         return ret;
-    };
+    }
     // deletes the whole node
-    AbstractNode.prototype.remove = function () {
+    remove() {
         this.ensureNotDeleted('remove');
         // console.log('AbstractNode().remove() node: ' + this.id);
         // console.log(this.toJSON(true));
         if (this.isInternalNode()) {
-            var useNode = this;
+            const useNode = this;
             if (useNode.parents.size > 0) {
                 throw new Error('cannot remove node with parents ' + this.id);
             }
         }
         if (this.branches) {
-            var useNode = this;
+            const useNode = this;
             if (useNode.branches.areBranchesStrictEqual()) {
                 useNode.branches.getBranch('0').parents.remove(useNode);
             }
@@ -44,10 +40,9 @@ var AbstractNode = /** @class */ (function () {
         }
         this.deleted = true;
         this.rootNode.removeNode(this);
-    };
-    AbstractNode.prototype.toJSON = function (withId) {
-        if (withId === void 0) { withId = false; }
-        var ret = {
+    }
+    toJSON(withId = false) {
+        const ret = {
             id: withId ? this.id : undefined,
             deleted: withId ? this.deleted : undefined,
             type: this.type,
@@ -60,22 +55,22 @@ var AbstractNode = /** @class */ (function () {
             ret.value = this.asLeafNode().value;
         }
         if (this.branches && !this.branches.deleted) {
-            var branches = this.branches;
+            const branches = this.branches;
             ret.branches = {
                 '0': branches.getBranch('0').toJSON(withId),
                 '1': branches.getBranch('1').toJSON(withId)
             };
         }
         return ret;
-    };
+    }
     // a strange string-representation
     // to make an equal check between nodes
-    AbstractNode.prototype.toString = function () {
-        var ret = '' +
+    toString() {
+        let ret = '' +
             '<' +
             this.type + ':' + this.level;
         if (this.branches) {
-            var branches = this.branches;
+            const branches = this.branches;
             ret += '|0:' + branches.getBranch('0');
             ret += '|1:' + branches.getBranch('1');
         }
@@ -84,43 +79,42 @@ var AbstractNode = /** @class */ (function () {
         }
         ret += '>';
         return ret;
-    };
-    AbstractNode.prototype.isRootNode = function () {
+    }
+    isRootNode() {
         return this.type === 'RootNode';
-    };
-    AbstractNode.prototype.isInternalNode = function () {
+    }
+    isInternalNode() {
         return this.type === 'InternalNode';
-    };
-    AbstractNode.prototype.isLeafNode = function () {
+    }
+    isLeafNode() {
         return this.type === 'LeafNode';
-    };
-    AbstractNode.prototype.asRootNode = function () {
+    }
+    asRootNode() {
         if (!this.isRootNode()) {
             throw new Error('ouch');
         }
         return this;
-    };
-    AbstractNode.prototype.asInternalNode = function () {
+    }
+    asInternalNode() {
         if (!this.isInternalNode()) {
             throw new Error('ouch');
         }
         return this;
-    };
-    AbstractNode.prototype.asLeafNode = function () {
+    }
+    asLeafNode() {
         if (!this.isLeafNode()) {
             throw new Error('ouch');
         }
         return this;
-    };
-    AbstractNode.prototype.ensureNotDeleted = function (op) {
-        if (op === void 0) { op = 'unknown'; }
+    }
+    ensureNotDeleted(op = 'unknown') {
         if (this.deleted) {
             throw new Error('forbidden operation ' + op + ' on deleted node ' + this.id);
         }
-    };
-    AbstractNode.prototype.log = function () {
+    }
+    log() {
         console.log(JSON.stringify(this.toJSON(true), null, 2));
-    };
+    }
     /**
  * by the elimination-rule of bdd,
  * if two branches of the same level are equal,
@@ -129,35 +123,34 @@ var AbstractNode = /** @class */ (function () {
  * See page 21 at:
  * @link https://people.eecs.berkeley.edu/~sseshia/219c/lectures/BinaryDecisionDiagrams.pdf
  */
-    AbstractNode.prototype.applyEliminationRule = function (
+    applyEliminationRule(
     // can be provided for better performance
     nodesOfSameLevel) {
-        var _this = this;
         this.ensureNotDeleted('applyEliminationRule');
         if (!nodesOfSameLevel) {
             nodesOfSameLevel = this.rootNode.getNodesOfLevel(this.level);
         }
-        var other = (0, find_similar_node_1.findSimilarNode)(this, nodesOfSameLevel);
+        const other = findSimilarNode(this, nodesOfSameLevel);
         if (other) {
             // console.log('applyEliminationRule() remove:' + this.id + '; other: ' + other.id);
             // keep 'other', remove 'this'
             // move own parents to other
-            var ownParents = this.parents.getAll();
-            var parentsWithStrictEqualBranches_1 = [];
-            ownParents.forEach(function (parent) {
+            const ownParents = this.parents.getAll();
+            const parentsWithStrictEqualBranches = [];
+            ownParents.forEach((parent) => {
                 // console.log('ownParent: ' + parent.id);
-                var branchKey = parent.branches.getKeyOfNode(_this);
+                const branchKey = parent.branches.getKeyOfNode(this);
                 // console.log('branchKey: ' + branchKey);
                 parent.branches.setBranch(branchKey, other);
                 if (parent.branches.areBranchesStrictEqual()) {
-                    parentsWithStrictEqualBranches_1.push(parent);
+                    parentsWithStrictEqualBranches.push(parent);
                 }
                 // remove parents from own list
                 // this will auto-remove the connection to the other '1'-branch
-                _this.parents.remove(parent);
+                this.parents.remove(parent);
             });
             // parents that now have equal branches, must be removed again
-            parentsWithStrictEqualBranches_1.forEach(function (node) {
+            parentsWithStrictEqualBranches.forEach(node => {
                 if (node.isInternalNode()) {
                     // console.log('trigger applyReductionRule from applyEliminationRule');
                     node.applyReductionRule();
@@ -168,8 +161,6 @@ var AbstractNode = /** @class */ (function () {
         else {
             return false;
         }
-    };
-    return AbstractNode;
-}());
-exports.AbstractNode = AbstractNode;
+    }
+}
 //# sourceMappingURL=abstract-node.js.map

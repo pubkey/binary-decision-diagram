@@ -26,28 +26,28 @@ Rules for the string:
 
 */
 // we use this because 39 is the quotes which causes problems
-export var CHAR_CODE_OFFSET = 40; // String.fromCharCode(33) === ')'
+export const CHAR_CODE_OFFSET = 40; // String.fromCharCode(33) === ')'
 export function getCharOfLevel(level) {
-    var charCode = CHAR_CODE_OFFSET + level;
+    const charCode = CHAR_CODE_OFFSET + level;
     return String.fromCharCode(charCode);
 }
 export function getNumberOfChar(char) {
-    var charCode = char.charCodeAt(0);
+    const charCode = char.charCodeAt(0);
     return charCode - CHAR_CODE_OFFSET;
 }
 export function getCharOfValue(value) {
-    var charCode = CHAR_CODE_OFFSET + value;
+    const charCode = CHAR_CODE_OFFSET + value;
     return String.fromCharCode(charCode);
 }
-export var FIRST_CHAR_CODE_FOR_ID = 97; // String.fromCharCode(97) === 'a'
+export const FIRST_CHAR_CODE_FOR_ID = 97; // String.fromCharCode(97) === 'a'
 export function getNextCharId(lastCode) {
     // jump these codes because they look strange
     if (lastCode >= 128 && lastCode <= 160) {
         lastCode = 161;
     }
-    var char = String.fromCharCode(lastCode);
+    const char = String.fromCharCode(lastCode);
     return {
-        char: char,
+        char,
         nextCode: lastCode + 1
     };
 }

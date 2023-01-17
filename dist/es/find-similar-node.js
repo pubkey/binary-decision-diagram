@@ -4,9 +4,9 @@
  * @hotpath
  */
 export function findSimilarNode(own, others) {
-    var ownString = own.toString();
-    for (var i = 0; i < others.length; i++) {
-        var other = others[i];
+    const ownString = own.toString();
+    for (let i = 0; i < others.length; i++) {
+        const other = others[i];
         if (own !== other &&
             !other.deleted &&
             own.isEqualToOtherNode(other, ownString)) {

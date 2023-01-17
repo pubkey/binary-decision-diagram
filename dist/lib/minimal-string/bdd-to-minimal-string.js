@@ -1,23 +1,20 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.nodeToString = exports.bddToMinimalString = void 0;
-var string_format_1 = require("./string-format");
-var string_format_2 = require("./string-format");
-function bddToMinimalString(bdd) {
-    var ret = '';
-    var currentCharCode = string_format_2.FIRST_CHAR_CODE_FOR_ID;
+import { getCharOfLevel, getCharOfValue, getNextCharId } from './string-format';
+import { FIRST_CHAR_CODE_FOR_ID } from './string-format';
+export function bddToMinimalString(bdd) {
+    let ret = '';
+    let currentCharCode = FIRST_CHAR_CODE_FOR_ID;
     // add leaf node count
-    var leafNodeAmount = bdd.getLeafNodes().length;
+    const leafNodeAmount = bdd.getLeafNodes().length;
     if (leafNodeAmount > 99) {
         throw new Error('cannot build string with too many leaf nodes');
     }
     ret += leafNodeAmount.toString().padStart(2, '0');
-    var levelsHighestFirst = bdd.levels.slice().reverse();
-    var idByNode = new Map();
-    levelsHighestFirst.forEach(function (level) {
-        var nodes = bdd.getNodesOfLevel(level);
-        nodes.forEach(function (node) {
-            var stringRep = nodeToString(node, idByNode, currentCharCode);
+    const levelsHighestFirst = bdd.levels.slice().reverse();
+    const idByNode = new Map();
+    levelsHighestFirst.forEach(level => {
+        const nodes = bdd.getNodesOfLevel(level);
+        nodes.forEach(node => {
+            const stringRep = nodeToString(node, idByNode, currentCharCode);
             currentCharCode = stringRep.nextCode;
             idByNode.set(node, stringRep.id);
             ret += stringRep.str;
@@ -25,36 +22,34 @@ function bddToMinimalString(bdd) {
     });
     return ret;
 }
-exports.bddToMinimalString = bddToMinimalString;
-function nodeToString(node, idByNode, lastCode) {
-    var nextId = (0, string_format_1.getNextCharId)(lastCode);
+export function nodeToString(node, idByNode, lastCode) {
+    const nextId = getNextCharId(lastCode);
     switch (node.type) {
         case 'LeafNode':
-            var valueChar = (0, string_format_1.getCharOfValue)(node.asLeafNode().value);
+            const valueChar = getCharOfValue(node.asLeafNode().value);
             return {
                 id: nextId.char,
                 nextCode: nextId.nextCode,
                 str: nextId.char + valueChar
             };
         case 'InternalNode':
-            var branch0Id = idByNode.get(node.asInternalNode().branches.getBranch('0'));
-            var branch1Id = idByNode.get(node.asInternalNode().branches.getBranch('1'));
+            const branch0Id = idByNode.get(node.asInternalNode().branches.getBranch('0'));
+            const branch1Id = idByNode.get(node.asInternalNode().branches.getBranch('1'));
             return {
                 id: nextId.char,
                 nextCode: nextId.nextCode,
-                str: nextId.char + branch0Id + branch1Id + (0, string_format_1.getCharOfLevel)(node.level)
+                str: nextId.char + branch0Id + branch1Id + getCharOfLevel(node.level)
             };
         case 'RootNode':
-            var branch0IdRoot = idByNode.get(node.asRootNode().branches.getBranch('0'));
-            var branch1IdRoot = idByNode.get(node.asRootNode().branches.getBranch('1'));
+            const branch0IdRoot = idByNode.get(node.asRootNode().branches.getBranch('0'));
+            const branch1IdRoot = idByNode.get(node.asRootNode().branches.getBranch('1'));
             return {
                 id: nextId.char,
                 nextCode: nextId.nextCode,
-                str: '' + branch0IdRoot + branch1IdRoot + (0, string_format_1.getCharOfLevel)(node.level)
+                str: '' + branch0IdRoot + branch1IdRoot + getCharOfLevel(node.level)
             };
         default:
             throw new Error('unknown node type');
     }
 }
-exports.nodeToString = nodeToString;
 //# sourceMappingURL=bdd-to-minimal-string.js.map

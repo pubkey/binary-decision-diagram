@@ -1,19 +1,3 @@
-var __read = (this && this.__read) || function (o, n) {
-    var m = typeof Symbol === "function" && o[Symbol.iterator];
-    if (!m) return o;
-    var i = m.call(o), r, ar = [], e;
-    try {
-        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
-    }
-    catch (error) { e = { error: error }; }
-    finally {
-        try {
-            if (r && !r.done && (m = i["return"])) m.call(i);
-        }
-        finally { if (e) throw e.error; }
-    }
-    return ar;
-};
 export function booleanStringToBoolean(str) {
     if (str === '1') {
         return true;
@@ -44,20 +28,19 @@ export function lastChar(str) {
 /**
  * @link https://stackoverflow.com/a/1349426
  */
-function makeid(length) {
-    if (length === void 0) { length = 6; }
-    var result = '';
-    var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    var charactersLength = characters.length;
-    for (var i = 0; i < length; i++) {
+function makeid(length = 6) {
+    let result = '';
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const charactersLength = characters.length;
+    for (let i = 0; i < length; i++) {
         result += characters.charAt(Math.floor(Math.random() * charactersLength));
     }
     return result;
 }
-var nodeIdPrefix = makeid(4);
-var lastIdGen = 0;
+const nodeIdPrefix = makeid(4);
+let lastIdGen = 0;
 export function nextNodeId() {
-    var ret = 'node_' + nodeIdPrefix + '_' + lastIdGen;
+    const ret = 'node_' + nodeIdPrefix + '_' + lastIdGen;
     lastIdGen++;
     return ret;
 }
@@ -65,8 +48,8 @@ export function nextNodeId() {
  * @link https://stackoverflow.com/a/16155417
  */
 export function decimalToPaddedBinary(decimal, padding) {
-    var binary = (decimal >>> 0).toString(2);
-    var padded = binary.padStart(padding, '0');
+    const binary = (decimal >>> 0).toString(2);
+    const padded = binary.padStart(padding, '0');
     return padded;
 }
 export function oppositeBinary(i) {
@@ -84,19 +67,19 @@ export function binaryToDecimal(binary) {
     return parseInt(binary, 2);
 }
 export function minBinaryWithLength(length) {
-    return new Array(length).fill(0).map(function () { return '0'; }).join('');
+    return new Array(length).fill(0).map(() => '0').join('');
 }
 export function maxBinaryWithLength(length) {
-    return new Array(length).fill(0).map(function () { return '1'; }).join('');
+    return new Array(length).fill(0).map(() => '1').join('');
 }
 export function getNextStateSet(stateSet) {
-    var decimal = binaryToDecimal(stateSet);
-    var increase = decimal + 1;
-    var binary = decimalToPaddedBinary(increase, stateSet.length);
+    const decimal = binaryToDecimal(stateSet);
+    const increase = decimal + 1;
+    const binary = decimalToPaddedBinary(increase, stateSet.length);
     return binary;
 }
 export function firstKeyOfMap(map) {
-    var iterator1 = map.keys();
+    const iterator1 = map.keys();
     return iterator1.next().value;
 }
 /**
@@ -104,10 +87,9 @@ export function firstKeyOfMap(map) {
  * @link https://stackoverflow.com/a/6274381
  */
 export function shuffleArray(a) {
-    var _a;
-    for (var i = a.length - 1; i > 0; i--) {
-        var j = Math.floor(Math.random() * (i + 1));
-        _a = __read([a[j], a[i]], 2), a[i] = _a[0], a[j] = _a[1];
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
     }
     return a;
 }
@@ -118,8 +100,8 @@ export function lastOfArray(ar) {
  * @link https://stackoverflow.com/a/6259536
  */
 export function splitStringToChunks(str, chunkSize) {
-    var chunks = [];
-    for (var i = 0, charsLength = str.length; i < charsLength; i += chunkSize) {
+    const chunks = [];
+    for (let i = 0, charsLength = str.length; i < charsLength; i += chunkSize) {
         chunks.push(str.substring(i, i + chunkSize));
     }
     return chunks;

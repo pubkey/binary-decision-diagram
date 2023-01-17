@@ -1,13 +1,10 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.resolveWithSimpleBdd = void 0;
-var util_1 = require("../util");
-function resolveWithSimpleBdd(simpleBdd, fns, input) {
-    var currentNode = simpleBdd;
-    var currentLevel = simpleBdd.l;
+import { booleanToBooleanString } from '../util';
+export function resolveWithSimpleBdd(simpleBdd, fns, input) {
+    let currentNode = simpleBdd;
+    let currentLevel = simpleBdd.l;
     while (true) {
-        var booleanResult = fns[currentLevel](input);
-        var branchKey = (0, util_1.booleanToBooleanString)(booleanResult);
+        const booleanResult = fns[currentLevel](input);
+        const branchKey = booleanToBooleanString(booleanResult);
         currentNode = currentNode[branchKey];
         if (typeof currentNode === 'number' || typeof currentNode === 'string') {
             return currentNode;
@@ -17,5 +14,4 @@ function resolveWithSimpleBdd(simpleBdd, fns, input) {
         }
     }
 }
-exports.resolveWithSimpleBdd = resolveWithSimpleBdd;
 //# sourceMappingURL=resolve-with-simple-bdd.js.map

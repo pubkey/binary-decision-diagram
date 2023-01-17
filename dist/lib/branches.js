@@ -1,25 +1,22 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ensureNodesNotStrictEqual = exports.Branches = void 0;
 /**
  * represents the branches of a single node
  */
-var Branches = /** @class */ (function () {
-    function Branches(node) {
+export class Branches {
+    constructor(node) {
         this.node = node;
         this.deleted = false;
         this.branches = {};
     }
-    Branches.prototype.setBranch = function (which, branchNode) {
-        var previous = this.branches[which];
+    setBranch(which, branchNode) {
+        const previous = this.branches[which];
         if (previous === branchNode) {
             return;
         }
         // set new branch
         this.branches[which] = branchNode;
         branchNode.parents.add(this.node);
-    };
-    Branches.prototype.getKeyOfNode = function (node) {
+    }
+    getKeyOfNode(node) {
         if (this.getBranch('0') === node) {
             return '0';
         }
@@ -29,17 +26,17 @@ var Branches = /** @class */ (function () {
         else {
             throw new Error('none matched');
         }
-    };
-    Branches.prototype.getBranch = function (which) {
+    }
+    getBranch(which) {
         return this.branches[which];
-    };
-    Branches.prototype.getBothBranches = function () {
+    }
+    getBothBranches() {
         return [
             this.getBranch('0'),
             this.getBranch('1')
         ];
-    };
-    Branches.prototype.hasBranchAsNode = function (node) {
+    }
+    hasBranchAsNode(node) {
         if (this.getBranch('0') === node ||
             this.getBranch('1') === node) {
             return true;
@@ -47,8 +44,8 @@ var Branches = /** @class */ (function () {
         else {
             return false;
         }
-    };
-    Branches.prototype.hasNodeIdAsBranch = function (id) {
+    }
+    hasNodeIdAsBranch(id) {
         if (this.getBranch('0').id === id ||
             this.getBranch('1').id === id) {
             return true;
@@ -56,21 +53,18 @@ var Branches = /** @class */ (function () {
         else {
             return false;
         }
-    };
-    Branches.prototype.areBranchesStrictEqual = function () {
+    }
+    areBranchesStrictEqual() {
         return this.branches['0'] === this.branches['1'];
-    };
-    Branches.prototype.hasEqualBranches = function () {
+    }
+    hasEqualBranches() {
         return JSON.stringify(this.branches['0']) ===
             JSON.stringify(this.branches['1']);
-    };
-    return Branches;
-}());
-exports.Branches = Branches;
-function ensureNodesNotStrictEqual(node1, node2) {
+    }
+}
+export function ensureNodesNotStrictEqual(node1, node2) {
     if (node1 === node2) {
         throw new Error('cannot have two strict equal branches');
     }
 }
-exports.ensureNodesNotStrictEqual = ensureNodesNotStrictEqual;
 //# sourceMappingURL=branches.js.map

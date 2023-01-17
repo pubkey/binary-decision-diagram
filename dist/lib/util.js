@@ -1,23 +1,4 @@
-"use strict";
-var __read = (this && this.__read) || function (o, n) {
-    var m = typeof Symbol === "function" && o[Symbol.iterator];
-    if (!m) return o;
-    var i = m.call(o), r, ar = [], e;
-    try {
-        while ((n === void 0 || n-- > 0) && !(r = i.next()).done) ar.push(r.value);
-    }
-    catch (error) { e = { error: error }; }
-    finally {
-        try {
-            if (r && !r.done && (m = i["return"])) m.call(i);
-        }
-        finally { if (e) throw e.error; }
-    }
-    return ar;
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.splitStringToChunks = exports.lastOfArray = exports.shuffleArray = exports.firstKeyOfMap = exports.getNextStateSet = exports.maxBinaryWithLength = exports.minBinaryWithLength = exports.binaryToDecimal = exports.oppositeBinary = exports.decimalToPaddedBinary = exports.nextNodeId = exports.lastChar = exports.oppositeBoolean = exports.booleanToBooleanString = exports.booleanStringToBoolean = void 0;
-function booleanStringToBoolean(str) {
+export function booleanStringToBoolean(str) {
     if (str === '1') {
         return true;
     }
@@ -25,8 +6,7 @@ function booleanStringToBoolean(str) {
         return false;
     }
 }
-exports.booleanStringToBoolean = booleanStringToBoolean;
-function booleanToBooleanString(b) {
+export function booleanToBooleanString(b) {
     if (b) {
         return '1';
     }
@@ -34,8 +14,7 @@ function booleanToBooleanString(b) {
         return '0';
     }
 }
-exports.booleanToBooleanString = booleanToBooleanString;
-function oppositeBoolean(input) {
+export function oppositeBoolean(input) {
     if (input === '1') {
         return '0';
     }
@@ -43,42 +22,37 @@ function oppositeBoolean(input) {
         return '1';
     }
 }
-exports.oppositeBoolean = oppositeBoolean;
-function lastChar(str) {
+export function lastChar(str) {
     return str.slice(-1);
 }
-exports.lastChar = lastChar;
 /**
  * @link https://stackoverflow.com/a/1349426
  */
-function makeid(length) {
-    if (length === void 0) { length = 6; }
-    var result = '';
-    var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    var charactersLength = characters.length;
-    for (var i = 0; i < length; i++) {
+function makeid(length = 6) {
+    let result = '';
+    const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const charactersLength = characters.length;
+    for (let i = 0; i < length; i++) {
         result += characters.charAt(Math.floor(Math.random() * charactersLength));
     }
     return result;
 }
-var nodeIdPrefix = makeid(4);
-var lastIdGen = 0;
-function nextNodeId() {
-    var ret = 'node_' + nodeIdPrefix + '_' + lastIdGen;
+const nodeIdPrefix = makeid(4);
+let lastIdGen = 0;
+export function nextNodeId() {
+    const ret = 'node_' + nodeIdPrefix + '_' + lastIdGen;
     lastIdGen++;
     return ret;
 }
-exports.nextNodeId = nextNodeId;
 /**
  * @link https://stackoverflow.com/a/16155417
  */
-function decimalToPaddedBinary(decimal, padding) {
-    var binary = (decimal >>> 0).toString(2);
-    var padded = binary.padStart(padding, '0');
+export function decimalToPaddedBinary(decimal, padding) {
+    const binary = (decimal >>> 0).toString(2);
+    const padded = binary.padStart(padding, '0');
     return padded;
 }
-exports.decimalToPaddedBinary = decimalToPaddedBinary;
-function oppositeBinary(i) {
+export function oppositeBinary(i) {
     if (i === '1') {
         return '0';
     }
@@ -89,57 +63,47 @@ function oppositeBinary(i) {
         throw new Error('non-binary given');
     }
 }
-exports.oppositeBinary = oppositeBinary;
-function binaryToDecimal(binary) {
+export function binaryToDecimal(binary) {
     return parseInt(binary, 2);
 }
-exports.binaryToDecimal = binaryToDecimal;
-function minBinaryWithLength(length) {
-    return new Array(length).fill(0).map(function () { return '0'; }).join('');
+export function minBinaryWithLength(length) {
+    return new Array(length).fill(0).map(() => '0').join('');
 }
-exports.minBinaryWithLength = minBinaryWithLength;
-function maxBinaryWithLength(length) {
-    return new Array(length).fill(0).map(function () { return '1'; }).join('');
+export function maxBinaryWithLength(length) {
+    return new Array(length).fill(0).map(() => '1').join('');
 }
-exports.maxBinaryWithLength = maxBinaryWithLength;
-function getNextStateSet(stateSet) {
-    var decimal = binaryToDecimal(stateSet);
-    var increase = decimal + 1;
-    var binary = decimalToPaddedBinary(increase, stateSet.length);
+export function getNextStateSet(stateSet) {
+    const decimal = binaryToDecimal(stateSet);
+    const increase = decimal + 1;
+    const binary = decimalToPaddedBinary(increase, stateSet.length);
     return binary;
 }
-exports.getNextStateSet = getNextStateSet;
-function firstKeyOfMap(map) {
-    var iterator1 = map.keys();
+export function firstKeyOfMap(map) {
+    const iterator1 = map.keys();
     return iterator1.next().value;
 }
-exports.firstKeyOfMap = firstKeyOfMap;
 /**
  * Shuffles array in place. ES6 version
  * @link https://stackoverflow.com/a/6274381
  */
-function shuffleArray(a) {
-    var _a;
-    for (var i = a.length - 1; i > 0; i--) {
-        var j = Math.floor(Math.random() * (i + 1));
-        _a = __read([a[j], a[i]], 2), a[i] = _a[0], a[j] = _a[1];
+export function shuffleArray(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
     }
     return a;
 }
-exports.shuffleArray = shuffleArray;
-function lastOfArray(ar) {
+export function lastOfArray(ar) {
     return ar[ar.length - 1];
 }
-exports.lastOfArray = lastOfArray;
 /**
  * @link https://stackoverflow.com/a/6259536
  */
-function splitStringToChunks(str, chunkSize) {
-    var chunks = [];
-    for (var i = 0, charsLength = str.length; i < charsLength; i += chunkSize) {
+export function splitStringToChunks(str, chunkSize) {
+    const chunks = [];
+    for (let i = 0, charsLength = str.length; i < charsLength; i += chunkSize) {
         chunks.push(str.substring(i, i + chunkSize));
     }
     return chunks;
 }
-exports.splitStringToChunks = splitStringToChunks;
 //# sourceMappingURL=util.js.map
