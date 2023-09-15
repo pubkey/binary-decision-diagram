@@ -40,7 +40,7 @@
     "@types/mocha": "10.0.1",
     "@types/node": "18.17.16",
     "assert": "2.1.0",
-    "async-test-util": "2.1.0",
+    "async-test-util": "2.1.1",
     "mocha": "10.2.0",
     "rimraf": "3.0.2",
     "ts-node": "10.9.1",
