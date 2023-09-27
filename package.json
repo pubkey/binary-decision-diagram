@@ -37,7 +37,7 @@
     "test": "mocha -r ts-node/register test/unit/index.test.ts --timeout 40000 --bail"
   },
   "devDependencies": {
-    "@types/mocha": "10.0.1",
+    "@types/mocha": "10.0.2",
     "@types/node": "18.18.0",
     "assert": "2.1.0",
     "async-test-util": "2.1.1",
