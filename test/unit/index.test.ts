@@ -1,6 +1,6 @@
-import './create-bdd-from-truth-table.test';
-import './find-similar-node.test';
-import './minimize.test';
-import './resolve.test';
-import './simple-bdd.test';
-import './optimize-brute-force.test';
+import './create-bdd-from-truth-table.test.js';
+import './find-similar-node.test.js';
+import './minimize.test.js';
+import './resolve.test.js';
+import './simple-bdd.test.js';
+import './optimize-brute-force.test.js';

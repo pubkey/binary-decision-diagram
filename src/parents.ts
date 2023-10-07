@@ -1,7 +1,7 @@
 import type {
     NonLeafNode,
     NonRootNode
-} from './types';
+} from './types.js';
 
 /**
  * represents the parents of a single node

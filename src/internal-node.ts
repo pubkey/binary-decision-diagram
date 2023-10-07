@@ -1,8 +1,8 @@
-import { Branches } from './branches';
-import { Parents } from './parents';
-import { RootNode } from './root-node';
-import { AbstractNode } from './abstract-node';
-import type { NonLeafNode, NonRootNode } from './types';
+import { Branches } from './branches.js';
+import { Parents } from './parents.js';
+import { RootNode } from './root-node.js';
+import { AbstractNode } from './abstract-node.js';
+import type { NonLeafNode, NonRootNode } from './types.js';
 
 export class InternalNode extends AbstractNode {
     public branches: Branches = new Branches(this);

@@ -1,11 +1,11 @@
 import * as assert from 'assert';
-import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table';
+import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table.js';
 import {
     exampleTruthTable, allEqualTable, randomTable, UNKNOWN, randomUnknownTable, getResolverFunctions
-} from '../helper/test-util';
-import { ensureCorrectBdd } from '../../src/ensure-correct-bdd';
-import { InternalNode, NonRootNode, LeafNode, ResolverFunctions, resolveWithSimpleBdd } from '../../src';
-import { bddToSimpleBdd } from '../../src/minimal-string/bdd-to-simple-bdd';
+} from '../helper/test-util.js';
+import { ensureCorrectBdd } from '../../src/ensure-correct-bdd.js';
+import { InternalNode, NonRootNode, LeafNode, ResolverFunctions, resolveWithSimpleBdd } from '../../src/index.js';
+import { bddToSimpleBdd } from '../../src/minimal-string/bdd-to-simple-bdd.js';
 
 describe('resolve.test.ts', () => {
     it('should have the same values as the truth table', () => {

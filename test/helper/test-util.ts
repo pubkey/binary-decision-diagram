@@ -1,14 +1,13 @@
 import * as fs from 'fs';
-import * as path from 'path';
 
-import { TruthTable, ResolverFunctions } from '../../src/types';
-import { fillTruthTable } from '../../src/fill-truth-table';
+import { TruthTable, ResolverFunctions } from '../../src/types.js';
+import { fillTruthTable } from '../../src/fill-truth-table.js';
 import {
     maxBinaryWithLength,
     binaryToDecimal,
     decimalToPaddedBinary,
     booleanStringToBoolean
-} from '../../src/util';
+} from '../../src/util.js';
 import { randomBoolean } from 'async-test-util';
 
 export function readJsonFile(filePath: string): any {
@@ -82,11 +81,9 @@ export function randomUnknownTable(
     return table;
 }
 
+import bigTruthTable from './big-truth-table.js';
 export function getBigTruthTable(): TruthTable {
-    const json = readJsonFile(
-        path.join(__dirname, 'big-truth-table.json')
-    );
-    const table = objectToMap(json) as TruthTable;
+    const table = objectToMap(bigTruthTable) as TruthTable;
     const firstKey = table.keys().next().value;
     const keyLength = firstKey.length;
 

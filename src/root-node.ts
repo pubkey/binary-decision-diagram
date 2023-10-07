@@ -1,18 +1,18 @@
-import { AbstractNode } from './abstract-node';
-import { Branches } from './branches';
+import { AbstractNode } from './abstract-node.js';
+import { Branches } from './branches.js';
 import type {
     NonRootNode,
     ResolverFunctions,
     NonLeafNode,
     SimpleBdd
-} from './types';
+} from './types.js';
 import {
     lastOfArray,
     booleanToBooleanString
-} from './util';
-import { InternalNode } from './internal-node';
-import { LeafNode } from './leaf-node';
-import { bddToSimpleBdd } from './minimal-string';
+} from './util.js';
+import { InternalNode } from './internal-node.js';
+import { LeafNode } from './leaf-node.js';
+import { bddToSimpleBdd } from './minimal-string/index.js';
 
 export class RootNode extends AbstractNode {
     public branches: Branches = new Branches(this);

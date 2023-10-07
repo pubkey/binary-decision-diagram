@@ -1,12 +1,12 @@
 import * as assert from 'assert';
-import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table';
+import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table.js';
 import {
     exampleTruthTable, allEqualTable, randomTable, UNKNOWN, randomUnknownTable, getResolverFunctions
-} from '../helper/test-util';
-import { ensureCorrectBdd } from '../../src/ensure-correct-bdd';
-import { InternalNode, NonRootNode, LeafNode, bddToMinimalString, minimalStringToSimpleBdd, resolveWithSimpleBdd } from '../../src';
-import { optimizeBruteForce, CompareResultsFunction } from '../../src/optimize-brute-force';
-import { bddToSimpleBdd } from '../../src/minimal-string/bdd-to-simple-bdd';
+} from '../helper/test-util.js';
+import { ensureCorrectBdd } from '../../src/ensure-correct-bdd.js';
+import { InternalNode, NonRootNode, LeafNode, bddToMinimalString, minimalStringToSimpleBdd, resolveWithSimpleBdd } from '../../src/index.js';
+import { optimizeBruteForce, CompareResultsFunction } from '../../src/optimize-brute-force.js';
+import { bddToSimpleBdd } from '../../src/minimal-string/bdd-to-simple-bdd.js';
 
 describe('optimize-brute-force.test.ts', () => {
     it('should return the same values when the order changed', async () => {

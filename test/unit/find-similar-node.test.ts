@@ -1,11 +1,11 @@
 import * as assert from 'assert';
-import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table';
+import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table.js';
 import {
     exampleTruthTable, allEqualTable
-} from '../helper/test-util';
-import { ensureCorrectBdd } from '../../src/ensure-correct-bdd';
-import { InternalNode } from '../../src';
-import { findSimilarNode } from '../../src/find-similar-node';
+} from '../helper/test-util.js';
+import { ensureCorrectBdd } from '../../src/ensure-correct-bdd.js';
+import { InternalNode } from '../../src/index.js';
+import { findSimilarNode } from '../../src/find-similar-node.js';
 
 
 describe('find-similar-node.test.ts', () => {

@@ -1,8 +1,8 @@
-import type { TruthTable } from './types';
-import { RootNode } from './root-node';
-import { createBddFromTruthTable } from './create-bdd-from-truth-table';
-import { firstKeyOfMap, shuffleArray, lastOfArray } from './util';
-import { AbstractNode } from './abstract-node';
+import type { TruthTable } from './types.js';
+import { RootNode } from './root-node.js';
+import { createBddFromTruthTable } from './create-bdd-from-truth-table.js';
+import { firstKeyOfMap, shuffleArray, lastOfArray } from './util.js';
+import { AbstractNode } from './abstract-node.js';
 
 /**
  * a function that is called each time

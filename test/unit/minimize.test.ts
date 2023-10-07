@@ -1,10 +1,10 @@
 import * as assert from 'assert';
-import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table';
+import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table.js';
 import {
     exampleTruthTable, allEqualTable, randomTable, UNKNOWN, randomUnknownTable
-} from '../helper/test-util';
-import { ensureCorrectBdd } from '../../src/ensure-correct-bdd';
-import { InternalNode, NonRootNode, LeafNode } from '../../src';
+} from '../helper/test-util.js';
+import { ensureCorrectBdd } from '../../src/ensure-correct-bdd.js';
+import { InternalNode, NonRootNode, LeafNode } from '../../src/index.js';
 
 describe('minimize.test.ts', () => {
     describe('applyReductionRule()', () => {

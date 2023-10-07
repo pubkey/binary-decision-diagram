@@ -1,9 +1,9 @@
 import * as assert from 'assert';
-import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table';
+import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table.js';
 import {
     exampleTruthTable
-} from '../helper/test-util';
-import { ensureCorrectBdd } from '../../src/ensure-correct-bdd';
+} from '../helper/test-util.js';
+import { ensureCorrectBdd } from '../../src/ensure-correct-bdd.js';
 
 
 describe('create-bdd-from-truth-table.test.ts', () => {

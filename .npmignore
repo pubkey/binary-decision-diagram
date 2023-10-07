@@ -1,0 +1,12 @@
+.git/
+.github/
+test/
+dist/test/
+renovate.json
+tsconfig.json
+tslint.json
+
+
+perf.md
+log.txt
+processed.txt

@@ -1,7 +1,7 @@
-import { RootNode } from './root-node';
-import { AbstractNode } from './abstract-node';
-import type { NonRootNode, NonLeafNode } from './types';
-import { InternalNode } from './internal-node';
+import { RootNode } from './root-node.js';
+import { AbstractNode } from './abstract-node.js';
+import type { NonRootNode, NonLeafNode } from './types.js';
+import { InternalNode } from './internal-node.js';
 
 /**
  * run some tests on the bdd

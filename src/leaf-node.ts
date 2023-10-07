@@ -1,9 +1,9 @@
-import { Parents } from './parents';
-import { AbstractNode } from './abstract-node';
-import { RootNode } from './root-node';
-import type { NonLeafNode } from './types';
-import { oppositeBoolean } from './util';
-import { InternalNode } from './internal-node';
+import { Parents } from './parents.js';
+import { AbstractNode } from './abstract-node.js';
+import { RootNode } from './root-node.js';
+import type { NonLeafNode } from './types.js';
+import { oppositeBoolean } from './util.js';
+import { InternalNode } from './internal-node.js';
 
 export class LeafNode extends AbstractNode {
     public parents = new Parents(this);

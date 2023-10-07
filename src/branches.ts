@@ -1,5 +1,5 @@
-import type { BooleanString, NonRootNode, NonLeafNode } from './types';
-import { AbstractNode } from './abstract-node';
+import type { BooleanString, NonRootNode, NonLeafNode } from './types.js';
+import { AbstractNode } from './abstract-node.js';
 
 /**
  * represents the branches of a single node

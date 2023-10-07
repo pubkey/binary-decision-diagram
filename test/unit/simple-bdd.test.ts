@@ -1,20 +1,20 @@
 import * as assert from 'assert';
-import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table';
-import { bddToSimpleBdd } from '../../src/minimal-string/bdd-to-simple-bdd';
+import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table.js';
+import { bddToSimpleBdd } from '../../src/minimal-string/bdd-to-simple-bdd.js';
 import {
     exampleTruthTable,
     randomTable,
     UNKNOWN,
     getResolverFunctions,
     getBigTruthTable
-} from '../helper/test-util';
+} from '../helper/test-util.js';
 import {
     ResolverFunctions,
     minimalStringToSimpleBdd,
     bddToMinimalString,
     resolveWithSimpleBdd,
     SimpleBdd
-} from '../../src';
+} from '../../src/index.js';
 
 describe('simple-bdd.test.ts', () => {
     describe('.bddToSimpleBdd()', () => {

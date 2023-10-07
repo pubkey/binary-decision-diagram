@@ -2,8 +2,8 @@ import {
     SimpleBdd,
     ResolverFunctions,
     SimpleBddLeafNode
-} from '../types';
-import { booleanToBooleanString } from '../util';
+} from '../types.js';
+import { booleanToBooleanString } from '../util.js';
 
 export function resolveWithSimpleBdd(
     simpleBdd: SimpleBdd,

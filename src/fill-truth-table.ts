@@ -2,8 +2,8 @@ import {
     minBinaryWithLength,
     maxBinaryWithLength,
     getNextStateSet
-} from './util';
-import type { TruthTable } from './types';
+} from './util.js';
+import type { TruthTable } from './types.js';
 
 /**
  * fills each missing row of a table
