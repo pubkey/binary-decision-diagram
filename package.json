@@ -1,6 +1,6 @@
 {
   "name": "binary-decision-diagram",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "A library to create, minimize and optimize binary decision diagrams",
   "keywords": [
     "binary decision diagram",
@@ -26,7 +26,7 @@
   "exports": {
     ".": {
       "default": {
-        "types": "./types/index.d.ts",
+        "types": "./dist/esm/src/index.d.ts",
         "import": "./dist/esm/src/index.js",
         "default": "./dist/cjs/src/index.es5.js"
       }
