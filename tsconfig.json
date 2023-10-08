@@ -1,7 +1,6 @@
 {
     "compilerOptions": {
-        "module": "NodeNext",
-        "moduleResolution": "NodeNext",
+        "moduleResolution": "node",
         "target": "ES2022",
         "removeComments": false,
         "preserveConstEnums": true,
@@ -14,11 +13,18 @@
         "downlevelIteration": true,
         "esModuleInterop": true,
         "declaration": true,
-        "outDir": "./dist",
+        "outDir": "./dist/cjs",
         "lib": [
             "es7",
             "dom"
         ]
+    },
+    "ts-node": {
+        // these options are overrides used only by ts-node
+        // same as the --compilerOptions flag and the TS_NODE_COMPILER_OPTIONS environment variable
+        "compilerOptions": {
+            "module": "commonjs"
+        }
     },
     "formatCodeOptions": {
         "indentSize": 2,

@@ -1,6 +1,6 @@
 {
   "name": "binary-decision-diagram",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "A library to create, minimize and optimize binary decision diagrams",
   "keywords": [
     "binary decision diagram",
@@ -23,8 +23,16 @@
     "url": "https://github.com/pubkey/binary-decision-diagram/issues"
   },
   "homepage": "https://github.com/pubkey/binary-decision-diagram#readme",
-  "type": "module",
-  "exports": "./dist/src/index.js",
+  "exports": {
+    ".": {
+      "default": {
+        "types": "./types/index.d.ts",
+        "import": "./dist/esm/src/index.js",
+        "default": "./dist/cjs/src/index.es5.js"
+      }
+    },
+    "./package.json": "./package.json"
+  },
   "engines": {
     "node": ">=16"
   },
@@ -33,9 +41,10 @@
   "scripts": {
     "lint": "tslint --project .",
     "lint:fix": "tslint --project . --fix",
-    "transpile": "tsc -p ./ && echo '# transpile es (modules) sucess!'",
-    "build": "rimraf -r ./dist && npm run transpile",
-    "test": "npm run build && mocha ./dist/test/unit/index.test.js --timeout 40000 --bail"
+    "transpile": "tsc -p ./ --module commonjs && echo '# transpile es5 (require) sucess!'",
+    "transpile:es": "tsc -p ./ --outDir ./dist/esm && echo '{ \"type\": \"module\" }' > dist/esm/src/package.json && echo '# transpile esm (modules) sucess!'",
+    "build": "rimraf -r ./dist && npm run transpile && npm run transpile:es",
+    "test": "npm run build && mocha ./dist/cjs/test/unit/index.test.js --timeout 40000 --bail"
   },
   "devDependencies": {
     "@types/mocha": "10.0.2",
@@ -43,6 +52,7 @@
     "assert": "2.1.0",
     "async-test-util": "2.1.1",
     "mocha": "10.2.0",
+    "ts-node": "10.9.1",
     "rimraf": "3.0.2",
     "tslint": "6.1.3",
     "typescript": "5.2.2"
