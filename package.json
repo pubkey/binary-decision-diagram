@@ -1,6 +1,6 @@
 {
   "name": "binary-decision-diagram",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "description": "A library to create, minimize and optimize binary decision diagrams",
   "keywords": [
     "binary decision diagram",
@@ -36,7 +36,7 @@
   "engines": {
     "node": ">=16"
   },
-  "types": "./dist/src/index.d.ts",
+  "types": "./dist/esm/src/index.d.ts",
   "sideEffects": false,
   "scripts": {
     "lint": "tslint --project .",
