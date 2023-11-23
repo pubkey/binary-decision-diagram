@@ -31,7 +31,7 @@ export function minimalStringToSimpleBdd(str) {
         const node0 = nodesById.get(idOf0Branch);
         const node1 = nodesById.get(idOf1Branch);
         const node = {
-            l: level,
+            l: level, // level is first for prettier json output
             0: node0,
             1: node1
         };

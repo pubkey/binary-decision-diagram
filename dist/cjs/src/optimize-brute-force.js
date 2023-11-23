@@ -28,6 +28,7 @@ async function optimizeBruteForce({ truthTable, iterations = Infinity, onBetterB
         truthTable,
         bdd: initialBdd
     };
+    onBetterBdd(currentBestResult);
     if (log) {
         initialBdd.log();
         console.log('initial nodes amount: ' + initialBdd.countNodes());

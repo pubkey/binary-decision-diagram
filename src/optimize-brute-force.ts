@@ -62,6 +62,7 @@ export async function optimizeBruteForce({
         truthTable,
         bdd: initialBdd
     };
+    onBetterBdd(currentBestResult);
 
     if (log) {
         initialBdd.log();
@@ -120,7 +121,6 @@ export async function optimizeBruteForce({
         }
 
         if (betterBdd === nextBdd) {
-
             if (log) {
                 console.log('#'.repeat(50));
                 console.log('found better bdd ' + nextBdd.countNodes());
