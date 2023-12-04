@@ -20,6 +20,7 @@ export interface OptimizeBruteForceInput {
     onBetterBdd?: OptmisiationCallback;
     compareResults?: CompareResultsFunction;
     afterBddCreation?: (bdd: RootNode) => void;
+    initialBdd?: RootNode;
     log?: boolean;
 }
 /**
@@ -27,7 +28,7 @@ export interface OptimizeBruteForceInput {
  * by randomly sorting the array
  * and checking the resulting bdd
  */
-export declare function optimizeBruteForce({ truthTable, iterations, onBetterBdd, compareResults, afterBddCreation, log }: OptimizeBruteForceInput): Promise<OptimisationResult>;
+export declare function optimizeBruteForce({ truthTable, iterations, onBetterBdd, compareResults, afterBddCreation, initialBdd, log }: OptimizeBruteForceInput): Promise<OptimisationResult>;
 export type BooleanFunctionReorderMapping = {
     [indexAfter: number]: number;
 };

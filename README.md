@@ -130,6 +130,8 @@ const optimizedResult = await optimizeBruteForce({
         console.log('new string: ' + bddMinimalString);
         console.log('value mapping:');
         console.dir(res.mapping);
-    }
+    },
+    // (optional) start with this BDD to optimize. If not set, will create an own one.
+    initialBdd: myBdd
 });
 ```

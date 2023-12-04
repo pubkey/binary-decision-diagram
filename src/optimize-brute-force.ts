@@ -38,6 +38,7 @@ export interface OptimizeBruteForceInput {
     // a function that returns the 'better' bdd
     compareResults?: CompareResultsFunction;
     afterBddCreation?: (bdd: RootNode) => void;
+    initialBdd?: RootNode;
     log?: boolean;
 }
 
@@ -52,10 +53,10 @@ export async function optimizeBruteForce({
     onBetterBdd = () => null,
     compareResults = defaultCompareResults,
     afterBddCreation = () => null,
+    initialBdd,
     log = false
 }: OptimizeBruteForceInput): Promise<OptimisationResult> {
-
-    const initialBdd = createBddFromTruthTable(truthTable);
+    initialBdd = initialBdd ? initialBdd : await createBddFromTruthTable(truthTable);
     afterBddCreation(initialBdd);
     initialBdd.minimize();
     let currentBestResult: OptimisationResult = {

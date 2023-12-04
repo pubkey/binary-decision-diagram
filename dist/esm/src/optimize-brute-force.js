@@ -16,8 +16,8 @@ export const defaultCompareResults = function (a, b) {
  * by randomly sorting the array
  * and checking the resulting bdd
  */
-export async function optimizeBruteForce({ truthTable, iterations = Infinity, onBetterBdd = () => null, compareResults = defaultCompareResults, afterBddCreation = () => null, log = false }) {
-    const initialBdd = createBddFromTruthTable(truthTable);
+export async function optimizeBruteForce({ truthTable, iterations = Infinity, onBetterBdd = () => null, compareResults = defaultCompareResults, afterBddCreation = () => null, initialBdd, log = false }) {
+    initialBdd = initialBdd ? initialBdd : await createBddFromTruthTable(truthTable);
     afterBddCreation(initialBdd);
     initialBdd.minimize();
     let currentBestResult = {
