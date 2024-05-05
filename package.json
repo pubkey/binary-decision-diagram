@@ -52,7 +52,7 @@
     "@types/mocha": "10.0.6",
     "@types/node": "20.12.8",
     "assert": "2.1.0",
-    "async-test-util": "2.4.0",
+    "async-test-util": "2.5.0",
     "mocha": "10.4.0",
     "rimraf": "3.0.2",
     "tslint": "6.1.3",
