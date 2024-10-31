@@ -50,7 +50,7 @@
   },
   "devDependencies": {
     "@types/mocha": "10.0.9",
-    "@types/node": "22.8.5",
+    "@types/node": "22.8.6",
     "assert": "2.1.0",
     "async-test-util": "2.5.0",
     "mocha": "10.8.2",
