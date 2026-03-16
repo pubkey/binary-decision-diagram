@@ -3,7 +3,6 @@ import {
     ResolverFunctions,
     SimpleBddLeafNode
 } from '../types.js';
-import { booleanToBooleanString } from '../util.js';
 
 export function resolveWithSimpleBdd(
     simpleBdd: SimpleBdd,
@@ -13,9 +12,8 @@ export function resolveWithSimpleBdd(
     let currentNode: SimpleBdd | SimpleBddLeafNode = simpleBdd;
     let currentLevel: number = simpleBdd.l;
     while (true) {
-        const booleanResult = fns[currentLevel](input);
-        const branchKey = booleanToBooleanString(booleanResult);
-        currentNode = currentNode[branchKey];
+        const booleanResult: boolean = fns[currentLevel](input);
+        currentNode = currentNode[booleanResult ? '1' : '0'];
         if (typeof currentNode === 'number' || typeof currentNode === 'string') {
             return currentNode as any;
         } else {

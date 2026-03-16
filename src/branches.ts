@@ -6,7 +6,7 @@ import { AbstractNode } from './abstract-node.js';
  */
 export class Branches {
     public deleted: boolean = false;
-    private branches: {
+    public data: {
         [k in BooleanString]: NonRootNode
     } = {} as any;
 
@@ -15,13 +15,13 @@ export class Branches {
     ) { }
 
     public setBranch(which: BooleanString, branchNode: NonRootNode) {
-        const previous = this.branches[which];
+        const previous = this.data[which];
         if (previous === branchNode) {
             return;
         }
 
         // set new branch
-        this.branches[which] = branchNode;
+        this.data[which] = branchNode;
         branchNode.parents.add(this.node);
     }
 
@@ -36,7 +36,7 @@ export class Branches {
     }
 
     public getBranch(which: BooleanString): NonRootNode {
-        return this.branches[which];
+        return this.data[which];
     }
 
     public getBothBranches(): NonRootNode[] {
@@ -69,12 +69,12 @@ export class Branches {
     }
 
     public areBranchesStrictEqual() {
-        return this.branches['0'] === this.branches['1'];
+        return this.data['0'] === this.data['1'];
     }
 
     public hasEqualBranches() {
-        return JSON.stringify(this.branches['0']) ===
-            JSON.stringify(this.branches['1']);
+        return JSON.stringify(this.data['0']) ===
+            JSON.stringify(this.data['1']);
     }
 }
 
