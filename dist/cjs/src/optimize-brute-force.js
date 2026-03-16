@@ -1,6 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getArrayWithIndexes = exports.changeKeyOrder = exports.shuffleBooleanOrdering = exports.optimizeBruteForce = exports.defaultCompareResults = void 0;
+exports.defaultCompareResults = void 0;
+exports.optimizeBruteForce = optimizeBruteForce;
+exports.shuffleBooleanOrdering = shuffleBooleanOrdering;
+exports.changeKeyOrder = changeKeyOrder;
+exports.getArrayWithIndexes = getArrayWithIndexes;
 const create_bdd_from_truth_table_js_1 = require("./create-bdd-from-truth-table.js");
 const util_js_1 = require("./util.js");
 /**
@@ -89,7 +93,6 @@ async function optimizeBruteForce({ truthTable, iterations = Infinity, onBetterB
     }
     return currentBestResult;
 }
-exports.optimizeBruteForce = optimizeBruteForce;
 function shuffleBooleanOrdering(truthTable) {
     const firstKey = (0, util_js_1.firstKeyOfMap)(truthTable);
     const arrayWithIndexes = getArrayWithIndexes(firstKey.length);
@@ -111,7 +114,6 @@ function shuffleBooleanOrdering(truthTable) {
         mappingBeforeToAfter
     };
 }
-exports.shuffleBooleanOrdering = shuffleBooleanOrdering;
 function changeKeyOrder(oldKey, mappingBeforeToAfter) {
     const chars = oldKey
         .split('')
@@ -127,7 +129,6 @@ function changeKeyOrder(oldKey, mappingBeforeToAfter) {
         .join('');
     return chars;
 }
-exports.changeKeyOrder = changeKeyOrder;
 function getArrayWithIndexes(size) {
     const ret = [];
     let last = 0;
@@ -137,5 +138,4 @@ function getArrayWithIndexes(size) {
     }
     return ret;
 }
-exports.getArrayWithIndexes = getArrayWithIndexes;
 //# sourceMappingURL=optimize-brute-force.js.map

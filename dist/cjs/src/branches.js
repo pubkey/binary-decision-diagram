@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ensureNodesNotStrictEqual = exports.Branches = void 0;
+exports.Branches = void 0;
+exports.ensureNodesNotStrictEqual = ensureNodesNotStrictEqual;
 /**
  * represents the branches of a single node
  */
@@ -72,5 +73,4 @@ function ensureNodesNotStrictEqual(node1, node2) {
         throw new Error('cannot have two strict equal branches');
     }
 }
-exports.ensureNodesNotStrictEqual = ensureNodesNotStrictEqual;
 //# sourceMappingURL=branches.js.map

@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.nodeToString = exports.bddToMinimalString = void 0;
+exports.bddToMinimalString = bddToMinimalString;
+exports.nodeToString = nodeToString;
 const string_format_js_1 = require("./string-format.js");
 const string_format_js_2 = require("./string-format.js");
 function bddToMinimalString(bdd) {
@@ -25,7 +26,6 @@ function bddToMinimalString(bdd) {
     });
     return ret;
 }
-exports.bddToMinimalString = bddToMinimalString;
 function nodeToString(node, idByNode, lastCode) {
     const nextId = (0, string_format_js_1.getNextCharId)(lastCode);
     switch (node.type) {
@@ -56,5 +56,4 @@ function nodeToString(node, idByNode, lastCode) {
             throw new Error('unknown node type');
     }
 }
-exports.nodeToString = nodeToString;
 //# sourceMappingURL=bdd-to-minimal-string.js.map

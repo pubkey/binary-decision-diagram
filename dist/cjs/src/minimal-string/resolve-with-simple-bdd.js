@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.resolveWithSimpleBdd = void 0;
+exports.resolveWithSimpleBdd = resolveWithSimpleBdd;
 const util_js_1 = require("../util.js");
 function resolveWithSimpleBdd(simpleBdd, fns, input) {
     let currentNode = simpleBdd;
@@ -17,5 +17,4 @@ function resolveWithSimpleBdd(simpleBdd, fns, input) {
         }
     }
 }
-exports.resolveWithSimpleBdd = resolveWithSimpleBdd;
 //# sourceMappingURL=resolve-with-simple-bdd.js.map

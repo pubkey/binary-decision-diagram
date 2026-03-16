@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.minimalStringToSimpleBdd = void 0;
+exports.minimalStringToSimpleBdd = minimalStringToSimpleBdd;
 const util_js_1 = require("../util.js");
 const string_format_js_1 = require("./string-format.js");
 function minimalStringToSimpleBdd(str) {
@@ -54,5 +54,4 @@ function minimalStringToSimpleBdd(str) {
     };
     return rootNode;
 }
-exports.minimalStringToSimpleBdd = minimalStringToSimpleBdd;
 //# sourceMappingURL=minimal-string-to-simple-bdd.js.map

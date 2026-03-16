@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.findSimilarNode = void 0;
+exports.findSimilarNode = findSimilarNode;
 /**
  * find an simliar node in a list of nodes
  * which is not exactly the same node
@@ -18,5 +18,4 @@ function findSimilarNode(own, others) {
     }
     return null;
 }
-exports.findSimilarNode = findSimilarNode;
 //# sourceMappingURL=find-similar-node.js.map

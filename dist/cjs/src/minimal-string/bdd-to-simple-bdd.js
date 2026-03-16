@@ -1,13 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.nodeToSimpleBddNode = exports.bddToSimpleBdd = void 0;
+exports.bddToSimpleBdd = bddToSimpleBdd;
+exports.nodeToSimpleBddNode = nodeToSimpleBddNode;
 /**
  * @recursive
  */
 function bddToSimpleBdd(bdd) {
     return nodeToSimpleBddNode(bdd);
 }
-exports.bddToSimpleBdd = bddToSimpleBdd;
 /**
  * @recursive
  */
@@ -20,5 +20,4 @@ function nodeToSimpleBddNode(node) {
         1: branch1.isLeafNode() ? branch1.asLeafNode().value : nodeToSimpleBddNode(branch1),
     };
 }
-exports.nodeToSimpleBddNode = nodeToSimpleBddNode;
 //# sourceMappingURL=bdd-to-simple-bdd.js.map

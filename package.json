@@ -46,7 +46,8 @@
     "transpile": "tsc -p ./ --module commonjs && echo '# transpile es5 (require) sucess!'",
     "transpile:es": "tsc -p ./ --outDir ./dist/esm && echo '{ \"type\": \"module\", \"sideEffects\": false }' > dist/esm/src/package.json && echo '# transpile esm (modules) sucess!'",
     "build": "rimraf -r ./dist && npm run transpile && npm run transpile:es",
-    "test": "npm run build && mocha ./dist/cjs/test/unit/index.test.js --timeout 40000 --bail"
+    "test": "npm run build && mocha ./dist/cjs/test/unit/index.test.js --timeout 40000 --bail",
+    "test:performance": "npm run build && mocha ./dist/cjs/test/performance/index.test.js --timeout 120000 --bail"
   },
   "devDependencies": {
     "@types/mocha": "10.0.10",

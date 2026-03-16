@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.fillTruthTable = void 0;
+exports.fillTruthTable = fillTruthTable;
 const util_js_1 = require("./util.js");
 /**
  * fills each missing row of a table
@@ -22,5 +22,4 @@ function fillTruthTable(truthTable, inputLength, value) {
         }
     }
 }
-exports.fillTruthTable = fillTruthTable;
 //# sourceMappingURL=fill-truth-table.js.map

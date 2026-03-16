@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createBddFromTruthTable = void 0;
+exports.createBddFromTruthTable = createBddFromTruthTable;
 const root_node_js_1 = require("./root-node.js");
 const util_js_1 = require("./util.js");
 const internal_node_js_1 = require("./internal-node.js");
@@ -34,5 +34,4 @@ function createBddFromTruthTable(truthTable) {
     }
     return root;
 }
-exports.createBddFromTruthTable = createBddFromTruthTable;
 //# sourceMappingURL=create-bdd-from-truth-table.js.map

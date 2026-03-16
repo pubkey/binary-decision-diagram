@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getNodesRecursive = exports.ensureCorrectBdd = void 0;
+exports.ensureCorrectBdd = ensureCorrectBdd;
+exports.getNodesRecursive = getNodesRecursive;
 /**
  * run some tests on the bdd
  * to ensure everything is correct
@@ -84,7 +85,6 @@ function ensureCorrectBdd(bdd) {
             'bdd includes a deleted node');
     }
 }
-exports.ensureCorrectBdd = ensureCorrectBdd;
 function getNodesRecursive(node, set = new Set()) {
     set.add(node);
     if (!node.isLeafNode()) {
@@ -98,5 +98,4 @@ function getNodesRecursive(node, set = new Set()) {
     }
     return set;
 }
-exports.getNodesRecursive = getNodesRecursive;
 //# sourceMappingURL=ensure-correct-bdd.js.map

@@ -8,7 +8,11 @@ while (t < 10000) {
 }
 */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getNextCharId = exports.FIRST_CHAR_CODE_FOR_ID = exports.getCharOfValue = exports.getNumberOfChar = exports.getCharOfLevel = exports.CHAR_CODE_OFFSET = void 0;
+exports.FIRST_CHAR_CODE_FOR_ID = exports.CHAR_CODE_OFFSET = void 0;
+exports.getCharOfLevel = getCharOfLevel;
+exports.getNumberOfChar = getNumberOfChar;
+exports.getCharOfValue = getCharOfValue;
+exports.getNextCharId = getNextCharId;
 /*
 
 To have a really small string representation, we have to hack some stuff
@@ -34,17 +38,14 @@ function getCharOfLevel(level) {
     const charCode = exports.CHAR_CODE_OFFSET + level;
     return String.fromCharCode(charCode);
 }
-exports.getCharOfLevel = getCharOfLevel;
 function getNumberOfChar(char) {
     const charCode = char.charCodeAt(0);
     return charCode - exports.CHAR_CODE_OFFSET;
 }
-exports.getNumberOfChar = getNumberOfChar;
 function getCharOfValue(value) {
     const charCode = exports.CHAR_CODE_OFFSET + value;
     return String.fromCharCode(charCode);
 }
-exports.getCharOfValue = getCharOfValue;
 exports.FIRST_CHAR_CODE_FOR_ID = 97; // String.fromCharCode(97) === 'a'
 function getNextCharId(lastCode) {
     // jump these codes because they look strange
@@ -57,5 +58,4 @@ function getNextCharId(lastCode) {
         nextCode: lastCode + 1
     };
 }
-exports.getNextCharId = getNextCharId;
 //# sourceMappingURL=string-format.js.map
