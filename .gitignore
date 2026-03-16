@@ -1,3 +1,2 @@
 /node_modules
-/dist/cjs/test/
-/dist/esm/test/
+/dist
