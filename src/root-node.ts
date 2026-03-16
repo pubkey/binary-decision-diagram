@@ -3,12 +3,10 @@ import { Branches } from './branches.js';
 import type {
     NonRootNode,
     ResolverFunctions,
-    NonLeafNode,
     SimpleBdd
 } from './types.js';
 import {
-    lastOfArray,
-    booleanToBooleanString
+    lastOfArray
 } from './util.js';
 import { InternalNode } from './internal-node.js';
 import { LeafNode } from './leaf-node.js';
@@ -178,13 +176,12 @@ export class RootNode extends AbstractNode {
         fns: ResolverFunctions,
         booleanFunctionInput: any
     ): number {
-        let currentNode: AbstractNode = this;
+        let currentNode: any = this;
         while (true) {
-            const booleanResult = fns[currentNode.level](booleanFunctionInput);
-            const branchKey = booleanToBooleanString(booleanResult);
-            currentNode = (currentNode as NonLeafNode).branches.getBranch(branchKey);
-            if (currentNode.isLeafNode()) {
-                return currentNode.asLeafNode().value;
+            const booleanResult: boolean = fns[currentNode.level](booleanFunctionInput);
+            currentNode = currentNode.branches.data[booleanResult ? '1' : '0'];
+            if (currentNode.type === 'LeafNode') {
+                return currentNode.value;
             }
         }
     }

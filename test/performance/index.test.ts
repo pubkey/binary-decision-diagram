@@ -2,10 +2,59 @@ import * as assert from 'assert';
 import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table.js';
 import { bddToMinimalString, minimalStringToSimpleBdd, resolveWithSimpleBdd } from '../../src/minimal-string/index.js';
 import { optimizeBruteForce } from '../../src/optimize-brute-force.js';
+import { booleanToBooleanString } from '../../src/util.js';
 import {
     randomTable,
     getResolverFunctions
 } from '../helper/test-util.js';
+import type {
+    ResolverFunctions,
+    NonLeafNode,
+    SimpleBdd,
+    SimpleBddLeafNode
+} from '../../src/types.js';
+import type { AbstractNode } from '../../src/abstract-node.js';
+
+/**
+ * Previous implementation of resolve for comparison.
+ */
+function resolveOld(
+    rootNode: any,
+    fns: ResolverFunctions,
+    booleanFunctionInput: any
+): number {
+    let currentNode: AbstractNode = rootNode;
+    while (true) {
+        const booleanResult = fns[currentNode.level](booleanFunctionInput);
+        const branchKey = booleanToBooleanString(booleanResult);
+        currentNode = (currentNode as NonLeafNode).branches.getBranch(branchKey);
+        if (currentNode.isLeafNode()) {
+            return currentNode.asLeafNode().value;
+        }
+    }
+}
+
+/**
+ * Previous implementation of resolveWithSimpleBdd for comparison.
+ */
+function resolveWithSimpleBddOld(
+    simpleBdd: SimpleBdd,
+    fns: ResolverFunctions,
+    input: any
+): number {
+    let currentNode: SimpleBdd | SimpleBddLeafNode = simpleBdd;
+    let currentLevel: number = simpleBdd.l;
+    while (true) {
+        const booleanResult = fns[currentLevel](input);
+        const branchKey = booleanToBooleanString(booleanResult);
+        currentNode = currentNode[branchKey];
+        if (typeof currentNode === 'number' || typeof currentNode === 'string') {
+            return currentNode as any;
+        } else {
+            currentLevel = currentNode.l;
+        }
+    }
+}
 
 describe('performance.test.ts', () => {
     it('should create a BDD from a big truth table', () => {
@@ -77,5 +126,102 @@ describe('performance.test.ts', () => {
         console.log(`  optimizeBruteForce(depth=${depth}, iterations=${iterations}): ${elapsed.toFixed(2)}ms`);
 
         assert.ok(result.bdd);
+    });
+    it('resolve() optimized vs previous implementation', () => {
+        const depth = 13;
+        const truthTable = randomTable(depth);
+        const bdd = createBddFromTruthTable(truthTable);
+        bdd.minimize();
+        const resolvers = getResolverFunctions(depth);
+        const keys = Array.from(truthTable.keys());
+        const rounds = 50;
+
+        // Warmup both paths thoroughly
+        for (let w = 0; w < 5; w++) {
+            for (const key of keys) {
+                bdd.resolve(resolvers, key);
+                resolveOld(bdd, resolvers, key);
+            }
+        }
+
+        let oldTotal = 0;
+        let newTotal = 0;
+        for (let r = 0; r < rounds; r++) {
+            const startOld = performance.now();
+            for (const key of keys) {
+                resolveOld(bdd, resolvers, key);
+            }
+            oldTotal += performance.now() - startOld;
+
+            const startNew = performance.now();
+            for (const key of keys) {
+                bdd.resolve(resolvers, key);
+            }
+            newTotal += performance.now() - startNew;
+        }
+
+        const oldAvg = oldTotal / rounds;
+        const newAvg = newTotal / rounds;
+        const improvement = ((oldAvg - newAvg) / oldAvg * 100);
+
+        console.log(`  resolve() previous avg (depth=${depth}, ${rounds} rounds): ${oldAvg.toFixed(4)}ms`);
+        console.log(`  resolve() optimized avg (depth=${depth}, ${rounds} rounds): ${newAvg.toFixed(4)}ms`);
+        console.log(`  resolve() improvement: ${improvement.toFixed(1)}%`);
+
+        // Verify correctness: both must return the same values
+        for (const key of keys) {
+            assert.strictEqual(bdd.resolve(resolvers, key), resolveOld(bdd, resolvers, key));
+        }
+    });
+    it('resolveWithSimpleBdd() optimized vs previous implementation', () => {
+        const depth = 13;
+        const truthTable = randomTable(depth);
+        const bdd = createBddFromTruthTable(truthTable);
+        bdd.minimize();
+        const minimalString = bddToMinimalString(bdd);
+        const simpleBdd = minimalStringToSimpleBdd(minimalString);
+        const resolvers = getResolverFunctions(depth);
+        const keys = Array.from(truthTable.keys());
+        const rounds = 50;
+
+        // Warmup both paths thoroughly
+        for (let w = 0; w < 5; w++) {
+            for (const key of keys) {
+                resolveWithSimpleBdd(simpleBdd, resolvers, key);
+                resolveWithSimpleBddOld(simpleBdd, resolvers, key);
+            }
+        }
+
+        let oldTotal = 0;
+        let newTotal = 0;
+        for (let r = 0; r < rounds; r++) {
+            const startOld = performance.now();
+            for (const key of keys) {
+                resolveWithSimpleBddOld(simpleBdd, resolvers, key);
+            }
+            oldTotal += performance.now() - startOld;
+
+            const startNew = performance.now();
+            for (const key of keys) {
+                resolveWithSimpleBdd(simpleBdd, resolvers, key);
+            }
+            newTotal += performance.now() - startNew;
+        }
+
+        const oldAvg = oldTotal / rounds;
+        const newAvg = newTotal / rounds;
+        const improvement = ((oldAvg - newAvg) / oldAvg * 100);
+
+        console.log(`  resolveWithSimpleBdd() previous avg (depth=${depth}, ${rounds} rounds): ${oldAvg.toFixed(4)}ms`);
+        console.log(`  resolveWithSimpleBdd() optimized avg (depth=${depth}, ${rounds} rounds): ${newAvg.toFixed(4)}ms`);
+        console.log(`  resolveWithSimpleBdd() improvement: ${improvement.toFixed(1)}%`);
+
+        // Verify correctness: both must return the same values
+        for (const key of keys) {
+            assert.strictEqual(
+                resolveWithSimpleBdd(simpleBdd, resolvers, key),
+                resolveWithSimpleBddOld(simpleBdd, resolvers, key)
+            );
+        }
     });
 });
