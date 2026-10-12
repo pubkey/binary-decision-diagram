@@ -35,7 +35,8 @@ export interface ExactCostOrderingResult {
     /**
      * The best ordering that was found. Irrelevant boolean functions
      * are always at the bottom. null when no ordering below the numeric
-     * upper bound exists and no upperBoundOrdering was given.
+     * upper bound exists and the upperBoundOrdering (if given) is not
+     * below it either.
      */
     ordering: number[] | null;
     /** expected cost of one resolve() call with `ordering` */
@@ -89,6 +90,9 @@ export class ExactCostOrderingSearch {
         private readonly table: DenseTruthTable,
         private readonly costModel: CostModel
     ) {
+        if (table.dontCareTerminal >= 0) {
+            throw new Error('the exact search needs a truth table without don\'t-care rows, resolve them with OrderingEvaluator.complete() first');
+        }
         this.diagram = new SharedDiagram(table);
         this.n = table.variableCount;
         this.costs = costModel.functionCosts;

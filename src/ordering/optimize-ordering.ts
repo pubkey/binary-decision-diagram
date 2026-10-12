@@ -55,8 +55,8 @@ export interface FindOrderingInput {
     /** Default: 20 */
     maxExactVariables?: number;
     /**
-     * Budget of the exact search. When it is exceeded, the result of the
-     * local search is returned and result.optimal is false.
+     * Budget of the exact search per candidate completion of the truth table.
+     * A candidate whose search exceeds it cannot be proven optimal.
      * Default: 200000
      */
     maxExactExpansions?: number;
@@ -80,10 +80,16 @@ export interface FindOrderingResult {
     /**
      * true when the exact search has proven that no other ordering gives a
      * BDD with fewer nodes (or, with functionCosts, a lower expected cost)
-     * for the (completed) truth table
+     * for the truth table in `truthTable`
      */
     optimal: boolean;
-    /** the truth table with the don't-care rows resolved, in the original key order */
+    /**
+     * The truth table the BDD represents: the input table with the don't-care
+     * rows resolved, with the same keys as the input (iterated in row order).
+     * createBddWithOrdering(result.truthTable, result.ordering) rebuilds the BDD.
+     * When don't-care rows exist, this completion can differ from the one that
+     * createBddWithOrdering(input, result.ordering, dontCareValue) would pick.
+     */
     truthTable: TruthTable;
     stats: OptimizeOrderingStats;
     /** @internal */
@@ -91,7 +97,7 @@ export interface FindOrderingResult {
 }
 
 export interface OptimizeOrderingStats {
-    /** amount of orderings that were evaluated */
+    /** amount of orderings the local search evaluated */
     evaluations: number;
     /** amount of states the exact search expanded */
     exactExpansions: number;
@@ -194,10 +200,18 @@ export function findOrdering(input: FindOrderingInput): FindOrderingResult {
     /**
      * phase 1: deterministic seeds, each improved by sifting and window permutation
      */
-    const seeds = seedOrderings(baseEvaluator);
-    (input.initialOrderings ? input.initialOrderings : []).forEach((ordering, index) => {
+    const userSeeds = (input.initialOrderings ? input.initialOrderings : []).map((ordering, index) => {
         ensureValidOrdering(ordering, n);
-        seeds.unshift({ name: 'initial-' + index, ordering: ordering.slice() });
+        return { name: 'initial-' + index, ordering: Array.from(ordering) };
+    });
+    const seenSeeds: Set<string> = new Set();
+    const seeds = userSeeds.concat(seedOrderings(baseEvaluator)).filter(seed => {
+        const key = seed.ordering.join(',');
+        if (seenSeeds.has(key)) {
+            return false;
+        }
+        seenSeeds.add(key);
+        return true;
     });
     let localBest: BestOrdering | null = null;
     const seedResults: BestOrdering[] = [];
@@ -261,9 +275,13 @@ export function findOrdering(input: FindOrderingInput): FindOrderingResult {
             seedResults.forEach(result => addCandidate(result.ordering, false));
         }
 
-        let budgetExceeded = false;
-        let provenFor: string | null = null;
-        while (candidates.length > 0 && !budgetExceeded) {
+        /**
+         * completions for which the exact search finished: on them, no ordering
+         * beats the best evaluation known at that time (which is never worse than
+         * the final one)
+         */
+        const solvedCompletions: Set<string> = new Set();
+        while (candidates.length > 0) {
             const candidate = candidates.shift() as { ordering: number[], table: DenseTruthTable };
             const candidateKey = completionKey(candidate.table);
             let exactOrdering: number[] | null;
@@ -293,38 +311,48 @@ export function findOrdering(input: FindOrderingInput): FindOrderingResult {
             }
             exactExpansions += expansions;
             if (!solved) {
-                budgetExceeded = true;
-                log('exact search gave up, keeping the best ordering so far');
-                break;
+                log('exact search gave up on one completion of the truth table');
+                continue;
             }
-            if (exactOrdering) {
-                const candidateEvaluator = new OrderingEvaluator(candidate.table, costModel);
-                const exactEvaluation = candidateEvaluator.evaluate(exactOrdering);
-                evaluations += candidateEvaluator.evaluations;
-                log('exact search: ' + describe(exactEvaluation) + ' after ' + expansions + ' expansions');
-                if (baseEvaluator.isBetter(exactEvaluation, best.evaluation)) {
-                    best = { ordering: exactOrdering, evaluation: exactEvaluation };
-                    completed = candidate.table;
-                    provenFor = candidateKey;
-                    onImprovement({
-                        ordering: best.ordering.slice(),
-                        nodeCount: exactEvaluation.nodeCount,
-                        expectedCost: exactEvaluation.expectedCost,
-                        phase: 'exact'
-                    });
-                    if (base.dontCareTerminal >= 0) {
-                        // the don't-care rows might resolve even better with the new ordering
-                        addCandidate(best.ordering, true);
-                    }
-                    continue;
+            solvedCompletions.add(candidateKey);
+            if (!exactOrdering) {
+                continue;
+            }
+            const candidateEvaluator = new OrderingEvaluator(candidate.table, costModel);
+            const exactEvaluation = candidateEvaluator.evaluate(exactOrdering);
+            log('exact search: ' + describe(exactEvaluation) + ' after ' + expansions + ' expansions');
+            if (baseEvaluator.isBetter(exactEvaluation, best.evaluation)) {
+                best = { ordering: exactOrdering, evaluation: exactEvaluation };
+                completed = candidate.table;
+                onImprovement({
+                    ordering: best.ordering.slice(),
+                    nodeCount: exactEvaluation.nodeCount,
+                    expectedCost: exactEvaluation.expectedCost,
+                    phase: 'exact'
+                });
+                if (base.dontCareTerminal >= 0) {
+                    // the don't-care rows might resolve even better with the new ordering
+                    addCandidate(best.ordering, true);
                 }
             }
-            if (candidateKey === completionKey(completed)) {
-                // nothing beats the best ordering on its own completion
-                provenFor = candidateKey;
+        }
+
+        /**
+         * When the completion the ordering picks itself is just as good,
+         * prefer it: then createBddWithOrdering(input, ordering, dontCareValue)
+         * rebuilds the same BDD.
+         */
+        if (base.dontCareTerminal >= 0) {
+            const own = baseEvaluator.complete(best.ordering);
+            if (completionKey(own) !== completionKey(completed)) {
+                const ownEvaluation = baseEvaluator.evaluate(best.ordering);
+                if (baseEvaluator.compare(ownEvaluation, best.evaluation) === 0) {
+                    best = { ordering: best.ordering, evaluation: ownEvaluation };
+                    completed = own;
+                }
             }
         }
-        optimal = !budgetExceeded && provenFor === completionKey(completed);
+        optimal = solvedCompletions.has(completionKey(completed));
     }
     evaluations += baseEvaluator.evaluations;
 
@@ -365,16 +393,21 @@ function completionKey(table: DenseTruthTable): string {
 export async function optimizeOrdering(input: OptimizeOrderingInput): Promise<OptimizeOrderingResult> {
     const found = findOrdering(input);
     const bdd = buildBddForOrdering(found.table, found.ordering);
+    let optimal = found.optimal;
     if (input.afterBddCreation) {
         input.afterBddCreation(bdd);
         bdd.minimize();
+        if (bdd.countNodes() !== found.nodeCount) {
+            // the hook changed the BDD, the proof does not hold for it anymore
+            optimal = false;
+        }
     }
     return {
         bdd,
         ordering: found.ordering,
         nodeCount: bdd.countNodes(),
         expectedCost: found.expectedCost,
-        optimal: found.optimal,
+        optimal,
         truthTable: found.truthTable,
         table: found.table,
         stats: found.stats

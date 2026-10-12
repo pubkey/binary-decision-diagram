@@ -398,6 +398,145 @@ describe('optimize-ordering.test.ts', () => {
             assertResolvesLikeTable(result.bdd, truthTable, UNKNOWN);
         });
     });
+    describe('edge cases', () => {
+        it('should handle tables with a single boolean function', async () => {
+            const constant: TruthTable = new Map([['0', 7], ['1', 7]]);
+            const constantResult = await optimizeOrdering({ truthTable: constant });
+            ensureCorrectBdd(constantResult.bdd);
+            assert.strictEqual(constantResult.nodeCount, 2);
+            assert.deepStrictEqual(constantResult.ordering, [0]);
+            assertResolvesLikeTable(constantResult.bdd, constant);
+
+            const identity: TruthTable = new Map([['0', 1], ['1', 2]]);
+            const identityResult = await optimizeOrdering({ truthTable: identity });
+            ensureCorrectBdd(identityResult.bdd);
+            assert.strictEqual(identityResult.nodeCount, 3);
+            assert.strictEqual(identityResult.optimal, true);
+            assertResolvesLikeTable(identityResult.bdd, identity);
+
+            const withDontCare: TruthTable = new Map([['0', UNKNOWN], ['1', 3]]);
+            const bdd = createBddWithOrdering(withDontCare, [0], UNKNOWN);
+            ensureCorrectBdd(bdd);
+            assert.strictEqual(bdd.resolve(getResolverFunctions(1), '0'), 3);
+        });
+        it('should handle unusual values and don\'t-care values', async () => {
+            const truthTable: TruthTable = new Map();
+            const values = [0, -5, 1000, 7, 0, 0, -5, 1000];
+            for (let row = 0; row < 8; row++) {
+                truthTable.set(row.toString(2).padStart(3, '0'), values[row]);
+            }
+            const plain = await optimizeOrdering({ truthTable });
+            ensureCorrectBdd(plain.bdd);
+            assertResolvesLikeTable(plain.bdd, truthTable);
+
+            const zeroIsDontCare = await optimizeOrdering({ truthTable, dontCareValue: 0 });
+            ensureCorrectBdd(zeroIsDontCare.bdd);
+            assertResolvesLikeTable(zeroIsDontCare.bdd, truthTable, 0);
+            assert.ok(zeroIsDontCare.nodeCount <= plain.nodeCount);
+            for (const value of zeroIsDontCare.truthTable.values()) {
+                assert.notStrictEqual(value, 0);
+            }
+
+            // a don't-care value that does not occur changes nothing
+            const absent = await optimizeOrdering({ truthTable, dontCareValue: 12345 });
+            assert.strictEqual(absent.nodeCount, plain.nodeCount);
+            assert.deepStrictEqual(absent.ordering, plain.ordering);
+        });
+        it('should keep the keys of the input table', () => {
+            const truthTable = randomUnknownTable(4);
+            truthTable.set('0000', 1);
+            const result = findOrdering({ truthTable, dontCareValue: UNKNOWN });
+            assert.deepStrictEqual(
+                Array.from(result.truthTable.keys()).sort(),
+                Array.from(truthTable.keys()).sort()
+            );
+        });
+        it('should rebuild the same bdd from result.truthTable and result.ordering', async () => {
+            for (let i = 0; i < 5; i++) {
+                const truthTable = randomUnknownTable(6);
+                truthTable.set('000000', 1);
+                const result = await optimizeOrdering({ truthTable, dontCareValue: UNKNOWN });
+                const rebuilt = createBddWithOrdering(result.truthTable, result.ordering);
+                assert.strictEqual(rebuilt.countNodes(), result.nodeCount);
+                assert.strictEqual(bddToMinimalString(rebuilt), bddToMinimalString(result.bdd));
+            }
+        });
+        it('should not claim optimality when the exact search gives up', () => {
+            const truthTable = randomTable(8);
+            const result = findOrdering({ truthTable, maxExactExpansions: 1 });
+            assert.strictEqual(result.optimal, false);
+            assert.ok(result.nodeCount > 0);
+            const evaluator = new OrderingEvaluator(parseTruthTable(truthTable));
+            assert.strictEqual(evaluator.evaluate(result.ordering).nodeCount, result.nodeCount);
+        });
+        it('should respect the exact search switches', () => {
+            const truthTable = randomTable(6);
+            const auto = findOrdering({ truthTable, maxExactVariables: 3 });
+            assert.strictEqual(auto.optimal, false);
+            assert.strictEqual(auto.stats.exactExpansions, 0);
+            const forced = findOrdering({ truthTable, exact: true, maxExactVariables: 3 });
+            assert.strictEqual(forced.optimal, true);
+            assert.ok(forced.nodeCount <= auto.nodeCount);
+        });
+        it('should use initial orderings in the given order and ignore duplicates', () => {
+            const truthTable = randomTable(5);
+            const optimum = findOrdering({ truthTable });
+            const seeded = findOrdering({
+                truthTable,
+                initialOrderings: [optimum.ordering, optimum.ordering, naturalOrdering(5)],
+                exact: false
+            });
+            assert.strictEqual(seeded.nodeCount, optimum.nodeCount);
+            assert.deepStrictEqual(seeded.ordering, optimum.ordering);
+        });
+        it('should validate the window size and the rounds', () => {
+            const truthTable = randomTable(5);
+            assert.throws(() => findOrdering({ truthTable, windowSize: 2.5 }));
+            assert.throws(() => findOrdering({ truthTable, windowSize: -1 }));
+            const noWindow = findOrdering({ truthTable, windowSize: 0 });
+            const bigWindow = findOrdering({ truthTable, windowSize: 10 });
+            assert.ok(noWindow.nodeCount > 0);
+            assert.strictEqual(bigWindow.optimal, true);
+            const evaluator = new OrderingEvaluator(parseTruthTable(truthTable));
+            assert.throws(() => new LocalOrderingSearch(evaluator, naturalOrdering(5), { maxRounds: 1.5 }));
+            const oneRound = new LocalOrderingSearch(evaluator, naturalOrdering(5), { maxRounds: 1 }).run();
+            assert.ok(oneRound.nodeCount > 0);
+        });
+        it('should not claim optimality after a hook changed the bdd', async () => {
+            const truthTable = randomUnknownTable(5);
+            truthTable.set('00000', 1);
+            truthTable.set('00001', 2);
+            const noop = await optimizeOrdering({
+                truthTable,
+                dontCareValue: UNKNOWN,
+                afterBddCreation: bdd => bdd.removeIrrelevantLeafNodes(UNKNOWN)
+            });
+            // the don't-care rows are already resolved, the hook changes nothing
+            assert.strictEqual(noop.bdd.countNodes(), noop.nodeCount);
+            ensureCorrectBdd(noop.bdd);
+
+            const changing = await optimizeOrdering({
+                truthTable,
+                dontCareValue: UNKNOWN,
+                afterBddCreation: bdd => bdd.removeIrrelevantLeafNodes(2)
+            });
+            ensureCorrectBdd(changing.bdd);
+            assert.strictEqual(changing.optimal, false);
+            assert.strictEqual(changing.bdd.countNodes(), changing.nodeCount);
+        });
+        it('removeIrrelevantLeafNodes() should work when the root points to the same node twice', () => {
+            // f = x1 ? 2 : 1, x0 is irrelevant so the root has the x1 node in both branches
+            const truthTable: TruthTable = new Map([['00', 1], ['01', 2], ['10', 1], ['11', 2]]);
+            const bdd = createBddWithOrdering(truthTable, [0, 1]);
+            assert.strictEqual(bdd.branches.getBranch('0'), bdd.branches.getBranch('1'));
+            bdd.removeIrrelevantLeafNodes(2);
+            ensureCorrectBdd(bdd);
+            const resolvers = getResolverFunctions(2);
+            for (const key of truthTable.keys()) {
+                assert.strictEqual(bdd.resolve(resolvers, key), 1);
+            }
+        });
+    });
     describe('cost objective', () => {
         it('expectedCost should equal the cost measured through resolve()', () => {
             for (let i = 0; i < 20; i++) {

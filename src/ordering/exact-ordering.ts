@@ -36,7 +36,8 @@ export interface ExactOrderingResult {
     /**
      * The best ordering that was found. Irrelevant boolean functions
      * are always at the bottom. null when no ordering below the numeric
-     * upper bound exists and no upperBoundOrdering was given.
+     * upper bound exists and the upperBoundOrdering (if given) is not
+     * below it either.
      */
     ordering: number[] | null;
     /** amount of internal (non-leaf) nodes of `ordering` */
@@ -76,6 +77,9 @@ export class ExactOrderingSearch {
     constructor(
         private readonly table: DenseTruthTable
     ) {
+        if (table.dontCareTerminal >= 0) {
+            throw new Error('the exact search needs a truth table without don\'t-care rows, resolve them with OrderingEvaluator.complete() first');
+        }
         this.diagram = new SharedDiagram(table);
         this.n = table.variableCount;
         this.terminalCount = table.terminalValues.length;

@@ -137,9 +137,20 @@ export class LocalOrderingSearch {
         ensureValidOrdering(initialOrdering, this.n);
         this.permuted = evaluator.permute(initialOrdering);
         this.best = evaluator.evaluatePermuted(this.permuted);
-        this.windowSize = Math.min(options.windowSize === undefined ? 3 : options.windowSize, this.n);
-        this.windowPermutations = this.windowSize >= 2 ? allPermutations(this.windowSize) : [];
-        this.maxRounds = options.maxRounds === undefined ? 50 : options.maxRounds;
+        const windowSize = options.windowSize === undefined ? 3 : options.windowSize;
+        if (!Number.isInteger(windowSize) || windowSize < 0) {
+            throw new Error('windowSize must be a non-negative integer');
+        }
+        const maxRounds = options.maxRounds === undefined ? 50 : options.maxRounds;
+        if (!Number.isInteger(maxRounds) || maxRounds < 0) {
+            throw new Error('maxRounds must be a non-negative integer');
+        }
+        this.windowSize = Math.min(windowSize, this.n);
+        // the identity permutation is the current state, no need to evaluate it again
+        this.windowPermutations = this.windowSize >= 2 ?
+            allPermutations(this.windowSize).filter(permutation => permutation.some((v, i) => v !== i)) :
+            [];
+        this.maxRounds = maxRounds;
         this.onImprovement = options.onImprovement ? options.onImprovement : () => null;
         this.log = options.log ? options.log : () => null;
     }
