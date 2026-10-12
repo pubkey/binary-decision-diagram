@@ -8,6 +8,7 @@ export * from './find-similar-node.js';
 export * from './internal-node.js';
 export * from './leaf-node.js';
 export * from './optimize-brute-force.js';
+export * from './ordering/index.js';
 export * from './parents.js';
 export * from './root-node.js';
 export * from './util.js';

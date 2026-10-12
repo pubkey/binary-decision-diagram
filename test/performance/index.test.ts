@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table.js';
 import { bddToMinimalString, minimalStringToSimpleBdd, resolveWithSimpleBdd } from '../../src/minimal-string/index.js';
 import { optimizeBruteForce } from '../../src/optimize-brute-force.js';
+import { optimizeOrdering } from '../../src/ordering/optimize-ordering.js';
 import { booleanToBooleanString } from '../../src/util.js';
 import {
     randomTable,
@@ -124,6 +125,23 @@ describe('performance.test.ts', () => {
         });
         const elapsed = performance.now() - start;
         console.log(`  optimizeBruteForce(depth=${depth}, iterations=${iterations}): ${elapsed.toFixed(2)}ms`);
+
+        assert.ok(result.bdd);
+    });
+    it('should run optimizeOrdering', async () => {
+        const depth = 12;
+        const truthTable = randomTable(depth);
+
+        const start = performance.now();
+        const result = await optimizeOrdering({
+            truthTable
+        });
+        const elapsed = performance.now() - start;
+        console.log(
+            `  optimizeOrdering(depth=${depth}): ${elapsed.toFixed(2)}ms, ` +
+            `${result.nodeCount} nodes, optimal=${result.optimal}, ` +
+            `${result.stats.evaluations} evaluations, ${result.stats.exactExpansions} exact expansions`
+        );
 
         assert.ok(result.bdd);
     });

@@ -6,3 +6,4 @@ import './resolve.test.js';
 import './simple-bdd.test.js';
 import './optimize-brute-force.test.js';
 import './reduction-both-branches.test.js';
+import './optimize-ordering.test.js';

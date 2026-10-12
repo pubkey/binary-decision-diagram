@@ -112,9 +112,44 @@ resolveWithSimpleBdd(
 );
 ```
 
+### optimizeOrdering()
+
+Deterministically finds a variable ordering (the order in which the boolean functions are tested) that gives a small BDD and returns the minimized BDD for it.
+Unlike `optimizeBruteForce()` it does not shuffle randomly: the same truth table always gives the same result,
+it needs seconds instead of hours, and for small enough tables it proves that no better ordering exists.
+How it works is described in [docs/variable-ordering.md](./docs/variable-ordering.md).
+
+```typescript
+const result = await optimizeOrdering({
+    truthTable,
+    // (optional) value of the rows that can never occur at runtime.
+    // These rows are resolved to whatever makes the BDD smallest,
+    // like removeIrrelevantLeafNodes() does it.
+    dontCareValue: unknownValueActionId,
+    // (optional) orderings to start from, for example the result of a previous run
+    initialOrderings: [[3, 0, 1, 2]],
+    // (optional) 'auto' (default) runs the exact search for up to 20 boolean functions,
+    // true always runs it, false never
+    exact: 'auto',
+    // (optional) called whenever a better ordering was found
+    onImprovement: ({ ordering, nodeCount, phase }) => console.log(phase + ': ' + nodeCount + ' nodes')
+});
+
+result.bdd;        // the minimized BDD, ready for bddToMinimalString()
+result.ordering;   // ordering[level] = index of the boolean function tested on that level
+result.nodeCount;  // result.bdd.countNodes()
+result.optimal;    // true when it is proven that no ordering gives fewer nodes
+result.truthTable; // the truth table with the don't-care rows resolved, in the original key order
+```
+
+Use `findOrdering()` with the same options when you only need the ordering and not the BDD,
+and `createBddWithOrdering(truthTable, ordering, dontCareValue)` to build the minimized BDD for a known ordering
+without going through the full decision tree.
+
 ### optimizeBruteForce()
 
-Optimizes the sorting of the boolean functions to get an optimal BDD. Returns a promise with the best found BDD.
+Optimizes the sorting of the boolean functions by shuffling randomly. Prefer `optimizeOrdering()`, which is deterministic and much faster.
+Returns a promise with the best found BDD.
 
 ```typescript
 const optimizedResult = await optimizeBruteForce({
