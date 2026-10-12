@@ -6,13 +6,14 @@ import {
     ensureValidOrdering,
     DenseTruthTable
 } from './dense-truth-table.js';
-import { OrderingEvaluator } from './ordering-evaluator.js';
+import { OrderingEvaluator, OrderingEvaluation, CostModel } from './ordering-evaluator.js';
 import {
     LocalOrderingSearch,
     seedOrderings,
     OrderingProgressCallback
 } from './local-search.js';
 import { ExactOrderingSearch } from './exact-ordering.js';
+import { ExactCostOrderingSearch } from './exact-cost-ordering.js';
 import { buildBddFromDiagram } from './build-bdd.js';
 
 export interface FindOrderingInput {
@@ -23,6 +24,21 @@ export interface FindOrderingInput {
      * exactly like removeIrrelevantLeafNodes() would do it.
      */
     dontCareValue?: number;
+    /**
+     * Cost of calling each boolean function: functionCosts[i] belongs to the
+     * boolean function with index i (the i-th character of the truth table keys).
+     * When given, the optimizer minimizes the expected cost of one resolve() call,
+     * that is the sum of the costs of the boolean functions that are called on the
+     * way from the root to the leaf, averaged over the rows, instead of the amount
+     * of nodes. The amount of nodes then only breaks ties.
+     */
+    functionCosts?: number[];
+    /**
+     * How often each row occurs at runtime relative to the other rows,
+     * used together with functionCosts. Default: every row that is not a
+     * don't-care row occurs equally often. Don't-care rows never occur.
+     */
+    rowWeight?: (key: string, value: number) => number;
     /**
      * Additional start orderings for the local search, for example the
      * best ordering of a previous run. ordering[level] is the index
@@ -57,8 +73,14 @@ export interface FindOrderingResult {
     /** amount of nodes of the BDD, as RootNode.countNodes() returns it */
     nodeCount: number;
     /**
-     * true when the exact search has proven that no other ordering
-     * gives a BDD with fewer nodes for the (completed) truth table
+     * Expected cost of one resolve() call with the returned ordering,
+     * only set when functionCosts were given.
+     */
+    expectedCost?: number;
+    /**
+     * true when the exact search has proven that no other ordering gives a
+     * BDD with fewer nodes (or, with functionCosts, a lower expected cost)
+     * for the (completed) truth table
      */
     optimal: boolean;
     /** the truth table with the don't-care rows resolved, in the original key order */
@@ -73,14 +95,14 @@ export interface OptimizeOrderingStats {
     evaluations: number;
     /** amount of states the exact search expanded */
     exactExpansions: number;
-    /** the ordering found by the local search alone */
+    /** the amount of nodes found by the local search alone */
     localSearchNodeCount: number;
     durationMs: number;
 }
 
 interface BestOrdering {
     ordering: number[];
-    nodeCount: number;
+    evaluation: OrderingEvaluation;
 }
 
 export interface OptimizeOrderingInput extends FindOrderingInput {
@@ -97,7 +119,62 @@ export interface OptimizeOrderingResult extends FindOrderingResult {
 }
 
 /**
- * Deterministically finds a variable ordering with a small BDD.
+ * Validates functionCosts and rowWeight and turns them into a cost model.
+ */
+export function buildCostModel(
+    table: DenseTruthTable,
+    functionCosts?: number[],
+    rowWeight?: (key: string, value: number) => number
+): CostModel | null {
+    if (!functionCosts) {
+        if (rowWeight) {
+            throw new Error('rowWeight can only be used together with functionCosts');
+        }
+        return null;
+    }
+    const n = table.variableCount;
+    if (functionCosts.length !== n) {
+        throw new Error('functionCosts must have one entry per boolean function (' + n + ')');
+    }
+    const costs = new Float64Array(n);
+    for (let v = 0; v < n; v++) {
+        const cost = functionCosts[v];
+        if (typeof cost !== 'number' || !isFinite(cost) || cost < 0) {
+            throw new Error('functionCosts[' + v + '] must be a non-negative number');
+        }
+        costs[v] = cost;
+    }
+    const weights = new Float64Array(table.rowCount);
+    let totalWeight = 0;
+    for (let row = 0; row < table.rowCount; row++) {
+        const id = table.terminalIds[row];
+        if (id === table.dontCareTerminal) {
+            continue;
+        }
+        let weight = 1;
+        if (rowWeight) {
+            const key = row.toString(2).padStart(n, '0');
+            weight = rowWeight(key, table.terminalValues[id]);
+            if (typeof weight !== 'number' || !isFinite(weight) || weight < 0) {
+                throw new Error('rowWeight must return a non-negative number, got ' + weight + ' for ' + key);
+            }
+        }
+        weights[row] = weight;
+        totalWeight += weight;
+    }
+    if (totalWeight <= 0) {
+        throw new Error('all row weights are zero');
+    }
+    return {
+        functionCosts: costs,
+        rowWeights: weights,
+        totalWeight
+    };
+}
+
+/**
+ * Deterministically finds a variable ordering with a small BDD
+ * (or, with functionCosts, with a cheap resolve() call).
  * See docs/variable-ordering.md for how it works.
  * Does not create BDD nodes, use optimizeOrdering() for that.
  */
@@ -107,9 +184,12 @@ export function findOrdering(input: FindOrderingInput): FindOrderingResult {
     const onImprovement = input.onImprovement ? input.onImprovement : () => null;
     const base = parseTruthTable(input.truthTable, input.dontCareValue);
     const n = base.variableCount;
-    const baseEvaluator = new OrderingEvaluator(base);
+    const costModel = buildCostModel(base, input.functionCosts, input.rowWeight);
+    const baseEvaluator = new OrderingEvaluator(base, costModel);
     const windowSize = input.windowSize === undefined ? 3 : input.windowSize;
     let evaluations = 0;
+    const describe = (evaluation: OrderingEvaluation) => evaluation.nodeCount + ' nodes' +
+        (costModel ? ', expected cost ' + evaluation.expectedCost : '');
 
     /**
      * phase 1: deterministic seeds, each improved by sifting and window permutation
@@ -126,23 +206,23 @@ export function findOrdering(input: FindOrderingInput): FindOrderingResult {
             windowSize,
             log: message => log('[' + seed.name + '] ' + message),
             onImprovement: progress => {
-                if (!localBest || progress.nodeCount < localBest.nodeCount) {
+                if (!localBest || baseEvaluator.isBetter(search.best, localBest.evaluation)) {
                     onImprovement(progress);
                 }
             }
         });
         const result = search.run();
-        log('seed ' + seed.name + ': ' + result.nodeCount + ' nodes');
-        seedResults.push({ ordering: result.ordering, nodeCount: result.nodeCount });
-        if (!localBest || result.nodeCount < localBest.nodeCount) {
-            localBest = { ordering: result.ordering, nodeCount: result.nodeCount };
+        log('seed ' + seed.name + ': ' + describe(result.evaluation));
+        seedResults.push({ ordering: result.ordering, evaluation: result.evaluation });
+        if (!localBest || baseEvaluator.isBetter(result.evaluation, localBest.evaluation)) {
+            localBest = { ordering: result.ordering, evaluation: result.evaluation };
         }
     }
     if (!localBest) {
         throw new Error('no ordering found, this should not happen');
     }
     let best: BestOrdering = localBest;
-    const localSearchNodeCount = best.nodeCount;
+    const localSearchNodeCount = best.evaluation.nodeCount;
 
     /**
      * phase 2: exact search
@@ -186,30 +266,52 @@ export function findOrdering(input: FindOrderingInput): FindOrderingResult {
         while (candidates.length > 0 && !budgetExceeded) {
             const candidate = candidates.shift() as { ordering: number[], table: DenseTruthTable };
             const candidateKey = completionKey(candidate.table);
-            const exactSearch = new ExactOrderingSearch(candidate.table);
-            const exactResult = exactSearch.run({
-                maxExpansions: input.maxExactExpansions,
-                upperBoundOrdering: candidate.ordering,
-                // only orderings that beat the best known BDD are interesting
-                upperBound: best.nodeCount - candidate.table.leafCount,
-                log
-            });
-            exactExpansions += exactResult.expansions;
-            if (!exactResult.solved) {
+            let exactOrdering: number[] | null;
+            let solved: boolean;
+            let expansions: number;
+            if (costModel) {
+                const exactResult = new ExactCostOrderingSearch(candidate.table, costModel).run({
+                    maxExpansions: input.maxExactExpansions,
+                    upperBoundOrdering: candidate.ordering,
+                    // only orderings that beat the best known one are interesting
+                    upperBound: best.evaluation.expectedCost,
+                    log
+                });
+                exactOrdering = exactResult.ordering;
+                solved = exactResult.solved;
+                expansions = exactResult.expansions;
+            } else {
+                const exactResult = new ExactOrderingSearch(candidate.table).run({
+                    maxExpansions: input.maxExactExpansions,
+                    upperBoundOrdering: candidate.ordering,
+                    upperBound: best.evaluation.nodeCount - candidate.table.leafCount,
+                    log
+                });
+                exactOrdering = exactResult.ordering;
+                solved = exactResult.solved;
+                expansions = exactResult.expansions;
+            }
+            exactExpansions += expansions;
+            if (!solved) {
                 budgetExceeded = true;
                 log('exact search gave up, keeping the best ordering so far');
                 break;
             }
-            if (exactResult.ordering) {
-                const completedEvaluator = new OrderingEvaluator(candidate.table);
-                const exactCount = completedEvaluator.evaluate(exactResult.ordering).nodeCount;
-                evaluations += completedEvaluator.evaluations;
-                log('exact search: ' + exactCount + ' nodes after ' + exactResult.expansions + ' expansions');
-                if (exactCount < best.nodeCount) {
-                    best = { ordering: exactResult.ordering, nodeCount: exactCount };
+            if (exactOrdering) {
+                const candidateEvaluator = new OrderingEvaluator(candidate.table, costModel);
+                const exactEvaluation = candidateEvaluator.evaluate(exactOrdering);
+                evaluations += candidateEvaluator.evaluations;
+                log('exact search: ' + describe(exactEvaluation) + ' after ' + expansions + ' expansions');
+                if (baseEvaluator.isBetter(exactEvaluation, best.evaluation)) {
+                    best = { ordering: exactOrdering, evaluation: exactEvaluation };
                     completed = candidate.table;
                     provenFor = candidateKey;
-                    onImprovement({ ordering: best.ordering.slice(), nodeCount: exactCount, phase: 'exact' });
+                    onImprovement({
+                        ordering: best.ordering.slice(),
+                        nodeCount: exactEvaluation.nodeCount,
+                        expectedCost: exactEvaluation.expectedCost,
+                        phase: 'exact'
+                    });
                     if (base.dontCareTerminal >= 0) {
                         // the don't-care rows might resolve even better with the new ordering
                         addCandidate(best.ordering, true);
@@ -228,7 +330,8 @@ export function findOrdering(input: FindOrderingInput): FindOrderingResult {
 
     return {
         ordering: best.ordering,
-        nodeCount: best.nodeCount,
+        nodeCount: best.evaluation.nodeCount,
+        expectedCost: costModel ? best.evaluation.expectedCost : undefined,
         optimal,
         truthTable: denseTruthTableToMap(completed),
         table: completed,
@@ -270,6 +373,7 @@ export async function optimizeOrdering(input: OptimizeOrderingInput): Promise<Op
         bdd,
         ordering: found.ordering,
         nodeCount: bdd.countNodes(),
+        expectedCost: found.expectedCost,
         optimal: found.optimal,
         truthTable: found.truthTable,
         table: found.table,

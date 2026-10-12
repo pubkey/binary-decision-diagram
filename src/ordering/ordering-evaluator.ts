@@ -2,6 +2,18 @@ import type { DenseTruthTable } from './dense-truth-table.js';
 import { ensureValidOrdering, withTerminalIds } from './dense-truth-table.js';
 
 /**
+ * Describes what a resolve() call costs.
+ */
+export interface CostModel {
+    /** functionCosts[v] = cost of calling boolean function v */
+    functionCosts: Float64Array;
+    /** rowWeights[row] = how often the row occurs at runtime, relative to the other rows */
+    rowWeights: Float64Array;
+    /** sum of rowWeights */
+    totalWeight: number;
+}
+
+/**
  * Result of evaluating a variable ordering.
  */
 export interface OrderingEvaluation {
@@ -15,9 +27,25 @@ export interface OrderingEvaluation {
     /**
      * Amount of nodes as RootNode.countNodes() would return it:
      * the root node, plus all nodes below the top level, plus the leaf nodes.
-     * This is the value that gets minimized.
      */
     nodeCount: number;
+    /**
+     * Expected cost of one resolve() call: the costs of the boolean functions
+     * that are called on the way from the root to the leaf, averaged over the
+     * rows with their weights. 0 when the evaluator has no cost model.
+     */
+    expectedCost: number;
+}
+
+/**
+ * The truth table permuted into the row order of an ordering:
+ * the value of boolean function ordering[k] is bit (n - 1 - k) of the row index.
+ */
+export interface PermutedTable {
+    ordering: number[];
+    ids: Int32Array;
+    /** row weights in the same order, null without cost model */
+    weights: Float64Array | null;
 }
 
 /**
@@ -43,6 +71,11 @@ export interface ReducedDiagram {
 }
 
 /**
+ * relative tolerance for comparing expected costs
+ */
+export const COST_EPSILON = 1e-9;
+
+/**
  * Evaluates variable orderings of a truth table without ever creating
  * BDD node objects.
  *
@@ -55,6 +88,12 @@ export interface ReducedDiagram {
  *
  * Don't-care rows are handled like RootNode.removeIrrelevantLeafNodes() does it:
  * a node whose one branch is entirely don't-care is replaced by its other branch.
+ *
+ * With a cost model, the same pass also sums up the weight of the rows that
+ * pass through a node on each level, which gives the expected cost of a
+ * resolve() call: a row pays for the boolean function of a level exactly when
+ * its block on that level has a node. The root node always calls its boolean
+ * function, even when the function is irrelevant.
  *
  * Buffers are allocated once and reused, so a single evaluator instance should
  * be used for many evaluations.
@@ -69,22 +108,31 @@ export class OrderingEvaluator {
     private readonly dontCare: number;
     private readonly bufA: Int32Array;
     private readonly bufB: Int32Array;
+    private readonly weightBufA: Float64Array | null;
+    private readonly weightBufB: Float64Array | null;
     private readonly hashLo: Int32Array;
     private readonly hashHi: Int32Array;
     private readonly hashId: Int32Array;
-    private readonly hashMask: number;
-    private readonly scratch: Int32Array;
+    private readonly scratch: PermutedTable;
 
     constructor(
-        public readonly table: DenseTruthTable
+        public readonly table: DenseTruthTable,
+        public readonly costModel: CostModel | null = null
     ) {
         this.variableCount = table.variableCount;
         this.rowCount = table.rowCount;
         this.terminalCount = table.terminalValues.length;
         this.dontCare = table.dontCareTerminal;
+        if (costModel) {
+            if (costModel.functionCosts.length !== this.variableCount || costModel.rowWeights.length !== this.rowCount) {
+                throw new Error('cost model does not fit the truth table');
+            }
+        }
         const half = Math.max(1, this.rowCount >>> 1);
         this.bufA = new Int32Array(half);
         this.bufB = new Int32Array(half);
+        this.weightBufA = costModel ? new Float64Array(half) : null;
+        this.weightBufB = costModel ? new Float64Array(half) : null;
         // at most rowCount/2 distinct nodes per level -> load factor <= 0.5
         let hashSize = 16;
         while (hashSize < this.rowCount) {
@@ -93,19 +141,20 @@ export class OrderingEvaluator {
         this.hashLo = new Int32Array(hashSize);
         this.hashHi = new Int32Array(hashSize);
         this.hashId = new Int32Array(hashSize);
-        this.hashMask = hashSize - 1;
-        this.scratch = new Int32Array(this.rowCount);
+        this.scratch = this.newPermutedTable();
     }
 
     /**
-     * Fills `out` with the terminal ids in the order given by `ordering`:
-     * the value of boolean function ordering[k] becomes bit (n - 1 - k)
-     * of the index into `out`.
+     * Permutes the table into the row order of `ordering`,
+     * into `target` when given.
      */
-    public permute(ordering: ArrayLike<number>, out: Int32Array = new Int32Array(this.rowCount)): Int32Array {
+    public permute(ordering: ArrayLike<number>, target: PermutedTable = this.newPermutedTable()): PermutedTable {
         ensureValidOrdering(ordering, this.variableCount);
         const n = this.variableCount;
         const src = this.table.terminalIds;
+        const srcWeights = this.costModel ? this.costModel.rowWeights : null;
+        const out = target.ids;
+        const outWeights = target.weights;
         const srcBit = new Int32Array(n);
         const dstBit = new Int32Array(n);
         for (let k = 0; k < n; k++) {
@@ -113,52 +162,87 @@ export class OrderingEvaluator {
             dstBit[k] = n - 1 - k;
         }
         for (let row = 0; row < this.rowCount; row++) {
-            let target = 0;
+            let targetRow = 0;
             for (let k = 0; k < n; k++) {
-                target |= ((row >>> srcBit[k]) & 1) << dstBit[k];
+                targetRow |= ((row >>> srcBit[k]) & 1) << dstBit[k];
             }
-            out[target] = src[row];
+            out[targetRow] = src[row];
+            if (outWeights && srcWeights) {
+                outWeights[targetRow] = srcWeights[row];
+            }
         }
-        return out;
+        target.ordering = Array.from(ordering);
+        return target;
     }
 
     /**
-     * Swaps the variables of two levels inside a permuted table in place.
+     * Swaps the boolean functions of two levels inside a permuted table in place.
      */
-    public swapLevels(permuted: Int32Array, levelA: number, levelB: number) {
+    public swapLevels(permuted: PermutedTable, levelA: number, levelB: number) {
         if (levelA === levelB) {
             return;
         }
         const n = this.variableCount;
-        const bitA = n - 1 - levelA;
-        const bitB = n - 1 - levelB;
-        const maskA = 1 << bitA;
-        const maskB = 1 << bitB;
+        const maskA = 1 << (n - 1 - levelA);
+        const maskB = 1 << (n - 1 - levelB);
         const both = maskA | maskB;
+        const ids = permuted.ids;
+        const weights = permuted.weights;
         for (let row = 0; row < this.rowCount; row++) {
             if ((row & both) === maskA) {
                 const other = row ^ both;
-                const tmp = permuted[row];
-                permuted[row] = permuted[other];
-                permuted[other] = tmp;
+                const tmp = ids[row];
+                ids[row] = ids[other];
+                ids[other] = tmp;
+                if (weights) {
+                    const tmpWeight = weights[row];
+                    weights[row] = weights[other];
+                    weights[other] = tmpWeight;
+                }
             }
         }
+        const tmpVariable = permuted.ordering[levelA];
+        permuted.ordering[levelA] = permuted.ordering[levelB];
+        permuted.ordering[levelB] = tmpVariable;
     }
 
     /**
      * Evaluates an ordering.
      */
     public evaluate(ordering: ArrayLike<number>): OrderingEvaluation {
-        const permuted = this.permute(ordering, this.scratch);
-        return this.evaluatePermuted(permuted);
+        return this.evaluatePermuted(this.permute(ordering, this.scratch));
     }
 
     /**
      * Evaluates an already permuted table (see permute()).
      */
-    public evaluatePermuted(permuted: Int32Array): OrderingEvaluation {
-        const result = this.run(permuted, null);
-        return result.evaluation;
+    public evaluatePermuted(permuted: PermutedTable): OrderingEvaluation {
+        return this.run(permuted, null).evaluation;
+    }
+
+    /**
+     * @returns true when evaluation a is strictly better than b:
+     * fewer nodes, or with a cost model a lower expected cost
+     * (ties in the expected cost are broken by the amount of nodes)
+     */
+    public isBetter(a: OrderingEvaluation, b: OrderingEvaluation): boolean {
+        return this.compare(a, b) < 0;
+    }
+
+    /**
+     * negative when a is better than b, positive when b is better, 0 when equal
+     */
+    public compare(a: OrderingEvaluation, b: OrderingEvaluation): number {
+        if (this.costModel) {
+            const epsilon = COST_EPSILON * Math.max(1, Math.abs(a.expectedCost), Math.abs(b.expectedCost));
+            if (a.expectedCost < b.expectedCost - epsilon) {
+                return -1;
+            }
+            if (a.expectedCost > b.expectedCost + epsilon) {
+                return 1;
+            }
+        }
+        return a.nodeCount - b.nodeCount;
     }
 
     /**
@@ -195,7 +279,7 @@ export class OrderingEvaluator {
             return this.table;
         }
         const n = this.variableCount;
-        const permuted = this.permute(ordering);
+        const permuted = this.permute(ordering).ids;
         const dc = this.dontCare;
 
         // isDontCare[b] tells whether block b of the current block size is entirely don't-care
@@ -243,8 +327,16 @@ export class OrderingEvaluator {
         return withTerminalIds(this.table, terminalIds, stillDontCare ? dc : -1);
     }
 
+    private newPermutedTable(): PermutedTable {
+        return {
+            ordering: [],
+            ids: new Int32Array(this.rowCount),
+            weights: this.costModel ? new Float64Array(this.rowCount) : null
+        };
+    }
+
     private run(
-        permuted: Int32Array,
+        permuted: PermutedTable,
         record: { nodeLevel: Int32Array, nodeLo: Int32Array, nodeHi: Int32Array } | null
     ): { evaluation: OrderingEvaluation, root: number } {
         this.evaluations++;
@@ -255,12 +347,17 @@ export class OrderingEvaluator {
         const hashHi = this.hashHi;
         const hashId = this.hashId;
         const nodesPerLevel: number[] = new Array(n).fill(0);
+        const levelWeights: number[] = new Array(n).fill(0);
+        const withWeights = this.costModel !== null && permuted.weights !== null;
 
-        let cur: Int32Array = permuted;
+        let cur: Int32Array = permuted.ids;
+        let curWeights: Float64Array | null = withWeights ? permuted.weights : null;
         let nextId = terminalCount;
         for (let level = n - 1; level >= 0; level--) {
             const half = 1 << level;
-            const next = (level & 1) === 0 ? this.bufA : this.bufB;
+            const even = (level & 1) === 0;
+            const next = even ? this.bufA : this.bufB;
+            const nextWeights = withWeights ? (even ? this.weightBufA : this.weightBufB) : null;
             let tableSize = 16;
             while (tableSize < half * 2) {
                 tableSize *= 2;
@@ -268,15 +365,22 @@ export class OrderingEvaluator {
             const mask = tableSize - 1;
             hashLo.fill(-1, 0, tableSize);
             let created = 0;
+            let levelWeight = 0;
             for (let i = 0; i < half; i++) {
                 const lo = cur[2 * i];
                 const hi = cur[2 * i + 1];
+                let blockWeight = 0;
+                if (curWeights && nextWeights) {
+                    blockWeight = curWeights[2 * i] + curWeights[2 * i + 1];
+                    nextWeights[i] = blockWeight;
+                }
                 let id: number;
                 if (lo === dc) {
                     id = hi;
                 } else if (hi === dc || lo === hi) {
                     id = lo;
                 } else {
+                    levelWeight += blockWeight;
                     let h = (Math.imul(lo, 0x9E3779B1) ^ Math.imul(hi, 0x85EBCA77)) >>> 0;
                     h = (h ^ (h >>> 15)) & mask;
                     while (true) {
@@ -305,16 +409,29 @@ export class OrderingEvaluator {
                 next[i] = id;
             }
             nodesPerLevel[level] = created;
+            levelWeights[level] = levelWeight;
             cur = next;
+            curWeights = nextWeights;
         }
 
         const internalNodeCount = nextId - terminalCount;
         const nodeCount = 1 + (internalNodeCount - nodesPerLevel[0]) + this.table.leafCount;
+        let expectedCost = 0;
+        if (this.costModel && withWeights) {
+            const costs = this.costModel.functionCosts;
+            const ordering = permuted.ordering;
+            // the root node always calls its boolean function
+            expectedCost = costs[ordering[0]];
+            for (let level = 1; level < n; level++) {
+                expectedCost += costs[ordering[level]] * levelWeights[level] / this.costModel.totalWeight;
+            }
+        }
         return {
             evaluation: {
                 nodesPerLevel,
                 internalNodeCount,
-                nodeCount
+                nodeCount,
+                expectedCost
             },
             root: cur[0]
         };

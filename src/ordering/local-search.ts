@@ -1,11 +1,15 @@
-import { OrderingEvaluator } from './ordering-evaluator.js';
+import { OrderingEvaluator, OrderingEvaluation, PermutedTable } from './ordering-evaluator.js';
 import { ensureValidOrdering, naturalOrdering } from './dense-truth-table.js';
 
-export type OrderingProgressCallback = (progress: {
+export interface OrderingProgress {
     ordering: number[];
     nodeCount: number;
+    /** 0 without cost model */
+    expectedCost: number;
     phase: string;
-}) => void;
+}
+
+export type OrderingProgressCallback = (progress: OrderingProgress) => void;
 
 export interface LocalSearchOptions {
     /**
@@ -26,13 +30,15 @@ export interface LocalSearchOptions {
 export interface OrderingSearchResult {
     ordering: number[];
     nodeCount: number;
+    expectedCost: number;
     nodesPerLevel: number[];
+    evaluation: OrderingEvaluation;
 }
 
 /**
  * Deterministic greedy construction:
  * fills the levels from the top, at each level the boolean function
- * that leads to the smallest BDD (with the other functions in their index order)
+ * that leads to the best BDD (with the other functions in their index order)
  * is picked.
  */
 export function greedyTopDownOrdering(evaluator: OrderingEvaluator): number[] {
@@ -41,12 +47,12 @@ export function greedyTopDownOrdering(evaluator: OrderingEvaluator): number[] {
     let remaining = naturalOrdering(n);
     while (remaining.length > 1) {
         let bestVar = -1;
-        let bestCount = Infinity;
+        let best: OrderingEvaluation | null = null;
         for (const candidate of remaining) {
             const ordering = prefix.concat([candidate], remaining.filter(v => v !== candidate));
-            const count = evaluator.evaluate(ordering).nodeCount;
-            if (count < bestCount) {
-                bestCount = count;
+            const evaluation = evaluator.evaluate(ordering);
+            if (!best || evaluator.isBetter(evaluation, best)) {
+                best = evaluation;
                 bestVar = candidate;
             }
         }
@@ -58,7 +64,7 @@ export function greedyTopDownOrdering(evaluator: OrderingEvaluator): number[] {
 
 /**
  * Deterministic greedy construction from the bottom:
- * at each step the boolean function that is cheapest as the lowest
+ * at each step the boolean function that is best as the lowest
  * remaining level is picked.
  */
 export function greedyBottomUpOrdering(evaluator: OrderingEvaluator): number[] {
@@ -67,12 +73,12 @@ export function greedyBottomUpOrdering(evaluator: OrderingEvaluator): number[] {
     let remaining = naturalOrdering(n);
     while (remaining.length > 1) {
         let bestVar = -1;
-        let bestCount = Infinity;
+        let best: OrderingEvaluation | null = null;
         for (const candidate of remaining) {
             const ordering = remaining.filter(v => v !== candidate).concat([candidate], suffix);
-            const count = evaluator.evaluate(ordering).nodeCount;
-            if (count < bestCount) {
-                bestCount = count;
+            const evaluation = evaluator.evaluate(ordering);
+            if (!best || evaluator.isBetter(evaluation, best)) {
+                best = evaluation;
                 bestVar = candidate;
             }
         }
@@ -106,15 +112,15 @@ function allPermutations(size: number): number[][] {
 /**
  * Improves an ordering by sifting (moving each variable through all positions
  * and keeping the best one) and exhaustive window permutation until no
- * strict improvement is found anymore. Everything is deterministic:
- * the same input always gives the same output.
+ * strict improvement is found anymore. "Better" is decided by
+ * OrderingEvaluator.isBetter(): fewer nodes, or with a cost model a lower
+ * expected cost. Everything is deterministic: the same input always gives
+ * the same output.
  */
 export class LocalOrderingSearch {
-    public readonly ordering: number[];
-    public nodeCount: number;
-    public nodesPerLevel: number[];
+    public best: OrderingEvaluation;
 
-    private readonly permuted: Int32Array;
+    private readonly permuted: PermutedTable;
     private readonly n: number;
     private readonly windowPermutations: number[][];
     private readonly windowSize: number;
@@ -129,11 +135,8 @@ export class LocalOrderingSearch {
     ) {
         this.n = evaluator.variableCount;
         ensureValidOrdering(initialOrdering, this.n);
-        this.ordering = Array.from(initialOrdering);
-        this.permuted = evaluator.permute(this.ordering);
-        const evaluation = evaluator.evaluatePermuted(this.permuted);
-        this.nodeCount = evaluation.nodeCount;
-        this.nodesPerLevel = evaluation.nodesPerLevel;
+        this.permuted = evaluator.permute(initialOrdering);
+        this.best = evaluator.evaluatePermuted(this.permuted);
         this.windowSize = Math.min(options.windowSize === undefined ? 3 : options.windowSize, this.n);
         this.windowPermutations = this.windowSize >= 2 ? allPermutations(this.windowSize) : [];
         this.maxRounds = options.maxRounds === undefined ? 50 : options.maxRounds;
@@ -141,11 +144,28 @@ export class LocalOrderingSearch {
         this.log = options.log ? options.log : () => null;
     }
 
+    /**
+     * ordering[level] = boolean function tested on that level
+     */
+    get ordering(): number[] {
+        return this.permuted.ordering;
+    }
+
+    get nodeCount(): number {
+        return this.best.nodeCount;
+    }
+
+    get expectedCost(): number {
+        return this.best.expectedCost;
+    }
+
     public result(): OrderingSearchResult {
         return {
             ordering: this.ordering.slice(),
-            nodeCount: this.nodeCount,
-            nodesPerLevel: this.nodesPerLevel.slice()
+            nodeCount: this.best.nodeCount,
+            expectedCost: this.best.expectedCost,
+            nodesPerLevel: this.best.nodesPerLevel.slice(),
+            evaluation: this.best
         };
     }
 
@@ -157,13 +177,13 @@ export class LocalOrderingSearch {
         let round = 0;
         while (round < this.maxRounds) {
             round++;
-            const before = this.nodeCount;
+            const before = this.best;
             this.siftRound();
             if (this.windowSize >= 2) {
                 this.windowRound();
             }
-            this.log('local search round ' + round + ': ' + before + ' -> ' + this.nodeCount + ' nodes');
-            if (this.nodeCount >= before) {
+            this.log('local search round ' + round + ': ' + this.describe(before) + ' -> ' + this.describe(this.best));
+            if (!this.evaluator.isBetter(this.best, before)) {
                 break;
             }
         }
@@ -172,23 +192,22 @@ export class LocalOrderingSearch {
 
     /**
      * One sifting round: each variable, largest level first,
-     * is moved to the position where the BDD is smallest.
+     * is moved to the position where the BDD is best.
      * @returns true if the ordering improved
      */
     public siftRound(): boolean {
-        const startCount = this.nodeCount;
+        const startEvaluation = this.best;
         const n = this.n;
         const positionOf = (v: number) => this.ordering.indexOf(v);
         const variables = this.ordering.slice().sort((a, b) => {
-            const diff = this.nodesPerLevel[positionOf(b)] - this.nodesPerLevel[positionOf(a)];
+            const diff = this.best.nodesPerLevel[positionOf(b)] - this.best.nodesPerLevel[positionOf(a)];
             return diff !== 0 ? diff : a - b;
         });
 
         for (const variable of variables) {
             const start = positionOf(variable);
-            let bestCount = this.nodeCount;
+            let bestEvaluation = this.best;
             let bestPosition = start;
-            let bestLevels = this.nodesPerLevel;
             let position = start;
 
             const moveTo = (target: number) => {
@@ -207,10 +226,9 @@ export class LocalOrderingSearch {
                     this.swapAdjacent(step === 1 ? position : position - 1);
                     position += step;
                     const evaluation = this.evaluator.evaluatePermuted(this.permuted);
-                    if (evaluation.nodeCount < bestCount) {
-                        bestCount = evaluation.nodeCount;
+                    if (this.evaluator.isBetter(evaluation, bestEvaluation)) {
+                        bestEvaluation = evaluation;
                         bestPosition = position;
-                        bestLevels = evaluation.nodesPerLevel;
                     }
                 }
             };
@@ -224,16 +242,13 @@ export class LocalOrderingSearch {
                 sweep(0);
             }
             moveTo(bestPosition);
-            if (bestCount < this.nodeCount) {
-                this.nodeCount = bestCount;
-                this.nodesPerLevel = bestLevels;
-                this.log('sifting: ' + bestCount + ' nodes');
-                this.onImprovement({ ordering: this.ordering.slice(), nodeCount: bestCount, phase: 'sifting' });
-            } else {
-                this.nodesPerLevel = bestLevels;
+            if (this.evaluator.isBetter(bestEvaluation, this.best)) {
+                this.best = bestEvaluation;
+                this.log('sifting: ' + this.describe(bestEvaluation));
+                this.onImprovement(this.progress('sifting'));
             }
         }
-        return this.nodeCount < startCount;
+        return this.evaluator.isBetter(this.best, startEvaluation);
     }
 
     /**
@@ -242,36 +257,47 @@ export class LocalOrderingSearch {
      * @returns true if the ordering improved
      */
     public windowRound(): boolean {
-        const startCount = this.nodeCount;
+        const startEvaluation = this.best;
         const w = this.windowSize;
         if (w < 2) {
             return false;
         }
         for (let windowStart = 0; windowStart + w <= this.n; windowStart++) {
             const original = this.ordering.slice(windowStart, windowStart + w);
-            let bestCount = this.nodeCount;
-            let bestLevels = this.nodesPerLevel;
+            let bestEvaluation = this.best;
             let bestPermutation: number[] | null = null;
             for (const permutation of this.windowPermutations) {
                 this.setWindow(windowStart, original, permutation);
                 const evaluation = this.evaluator.evaluatePermuted(this.permuted);
-                if (evaluation.nodeCount < bestCount) {
-                    bestCount = evaluation.nodeCount;
-                    bestLevels = evaluation.nodesPerLevel;
+                if (this.evaluator.isBetter(evaluation, bestEvaluation)) {
+                    bestEvaluation = evaluation;
                     bestPermutation = permutation;
                 }
             }
             if (bestPermutation) {
                 this.setWindow(windowStart, original, bestPermutation);
-                this.nodeCount = bestCount;
-                this.nodesPerLevel = bestLevels;
-                this.log('window permutation: ' + bestCount + ' nodes');
-                this.onImprovement({ ordering: this.ordering.slice(), nodeCount: bestCount, phase: 'window' });
+                this.best = bestEvaluation;
+                this.log('window permutation: ' + this.describe(bestEvaluation));
+                this.onImprovement(this.progress('window'));
             } else {
                 this.setWindow(windowStart, original, naturalOrdering(w));
             }
         }
-        return this.nodeCount < startCount;
+        return this.evaluator.isBetter(this.best, startEvaluation);
+    }
+
+    private progress(phase: string): OrderingProgress {
+        return {
+            ordering: this.ordering.slice(),
+            nodeCount: this.best.nodeCount,
+            expectedCost: this.best.expectedCost,
+            phase
+        };
+    }
+
+    private describe(evaluation: OrderingEvaluation): string {
+        return evaluation.nodeCount + ' nodes' +
+            (this.evaluator.costModel ? ', expected cost ' + evaluation.expectedCost : '');
     }
 
     /**
@@ -282,13 +308,7 @@ export class LocalOrderingSearch {
     }
 
     private swapLevels(levelA: number, levelB: number) {
-        if (levelA === levelB) {
-            return;
-        }
         this.evaluator.swapLevels(this.permuted, levelA, levelB);
-        const tmp = this.ordering[levelA];
-        this.ordering[levelA] = this.ordering[levelB];
-        this.ordering[levelB] = tmp;
     }
 
     /**

@@ -9,6 +9,7 @@ import {
     getBigTruthTable
 } from '../helper/test-util.js';
 import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table.js';
+import type { ResolverFunctions } from '../../src/types.js';
 import { ensureCorrectBdd } from '../../src/ensure-correct-bdd.js';
 import {
     optimizeOrdering,
@@ -17,6 +18,8 @@ import {
     parseTruthTable,
     OrderingEvaluator,
     ExactOrderingSearch,
+    ExactCostOrderingSearch,
+    buildCostModel,
     LocalOrderingSearch,
     naturalOrdering,
     bddToMinimalString,
@@ -110,6 +113,57 @@ function assertResolvesLikeTable(
         assert.strictEqual(bdd.resolve(resolvers, key), value);
         assert.strictEqual(resolveWithSimpleBdd(simpleBdd, resolvers, key), value);
     }
+}
+
+/**
+ * The expected cost of a resolve() call, measured by actually resolving
+ * every row with resolver functions that add up their costs.
+ */
+function measureExpectedCost(
+    bdd: RootNode,
+    truthTable: TruthTable,
+    functionCosts: number[],
+    rowWeight: (key: string, value: number) => number,
+    dontCareValue?: number
+): number {
+    const depth = functionCosts.length;
+    let spent = 0;
+    const resolvers: ResolverFunctions = {};
+    for (let i = 0; i < depth; i++) {
+        resolvers[i] = (state: string) => {
+            spent += functionCosts[i];
+            return state[i] === '1';
+        };
+    }
+    let total = 0;
+    let weightSum = 0;
+    for (const [key, value] of truthTable.entries()) {
+        if (value === dontCareValue) {
+            continue;
+        }
+        const weight = rowWeight(key, value);
+        spent = 0;
+        bdd.resolve(resolvers, key);
+        total += weight * spent;
+        weightSum += weight;
+    }
+    return total / weightSum;
+}
+
+function randomCosts(depth: number): number[] {
+    const costs: number[] = [];
+    for (let i = 0; i < depth; i++) {
+        costs.push(Math.floor(Math.random() * 20) + (Math.random() < 0.3 ? 0 : 1));
+    }
+    return costs;
+}
+
+function assertClose(actual: number, expected: number) {
+    const tolerance = 1e-9 * Math.max(1, Math.abs(expected));
+    assert.ok(
+        Math.abs(actual - expected) <= tolerance,
+        'expected ' + actual + ' to be close to ' + expected
+    );
 }
 
 describe('optimize-ordering.test.ts', () => {
@@ -324,6 +378,14 @@ describe('optimize-ordering.test.ts', () => {
             assert.ok(hookCalled);
             assert.ok(improvements >= 0);
         });
+        it('should keep the key order of the levels and the resolvers in sync', async () => {
+            const truthTable = randomTable(5);
+            const result = await optimizeOrdering({ truthTable });
+            const resolvers = getResolverFunctions(5);
+            for (const [key, value] of truthTable.entries()) {
+                assert.strictEqual(result.bdd.resolve(resolvers, key), value);
+            }
+        });
         it('should optimize the big truth table', async function () {
             this.timeout(120000);
             const truthTable = getBigTruthTable();
@@ -334,6 +396,142 @@ describe('optimize-ordering.test.ts', () => {
             ensureCorrectBdd(result.bdd);
             assert.ok(result.nodeCount < natural.countNodes() / 2);
             assertResolvesLikeTable(result.bdd, truthTable, UNKNOWN);
+        });
+    });
+    describe('cost objective', () => {
+        it('expectedCost should equal the cost measured through resolve()', () => {
+            for (let i = 0; i < 20; i++) {
+                const depth = 1 + Math.floor(Math.random() * 6);
+                const useDontCare = i % 2 === 0;
+                const truthTable = useDontCare ? randomUnknownTable(depth) : randomTable(depth);
+                truthTable.set('0'.repeat(depth), 1);
+                const functionCosts = randomCosts(depth);
+                const rowWeight: (key: string, value: number) => number = i % 3 === 0 ? () => 1 : (key: string) => 1 + (parseInt(key, 2) % 5);
+                const table = parseTruthTable(truthTable, useDontCare ? UNKNOWN : undefined);
+                const costModel = buildCostModel(table, functionCosts, rowWeight);
+                const evaluator = new OrderingEvaluator(table, costModel);
+                const ordering = shuffleArray(naturalOrdering(depth));
+                const evaluation = evaluator.evaluate(ordering);
+                const bdd = createBddWithOrdering(truthTable, ordering, useDontCare ? UNKNOWN : undefined);
+                const measured = measureExpectedCost(bdd, truthTable, functionCosts, rowWeight, useDontCare ? UNKNOWN : undefined);
+                assertClose(evaluation.expectedCost, measured);
+            }
+        });
+        it('ExactCostOrderingSearch should find the optimum of all permutations', () => {
+            for (let i = 0; i < 30; i++) {
+                const depth = 1 + Math.floor(Math.random() * 6);
+                const useDontCare = i % 2 === 0;
+                const truthTable = useDontCare ? randomUnknownTable(depth) : randomTable(depth);
+                truthTable.set('0'.repeat(depth), 1);
+                const functionCosts = randomCosts(depth);
+                const rowWeight: (key: string, value: number) => number = i % 3 === 0 ? () => 1 : (key: string) => (parseInt(key, 2) % 3);
+                const base = parseTruthTable(truthTable, useDontCare ? UNKNOWN : undefined);
+                const completed = new OrderingEvaluator(base).complete(naturalOrdering(depth));
+                let costModel: ReturnType<typeof buildCostModel>;
+                try {
+                    costModel = buildCostModel(completed, functionCosts, (key, value) =>
+                        base.terminalIds[parseInt(key, 2)] === base.dontCareTerminal ? 0 : rowWeight(key, value)
+                    );
+                } catch (err) {
+                    // all weights zero
+                    continue;
+                }
+                if (!costModel) {
+                    throw new Error('cost model expected');
+                }
+                const evaluator = new OrderingEvaluator(completed, costModel);
+                let optimum = Infinity;
+                allPermutations(naturalOrdering(depth)).forEach(permutation => {
+                    optimum = Math.min(optimum, evaluator.evaluate(permutation).expectedCost);
+                });
+                const withoutBound = new ExactCostOrderingSearch(completed, costModel).run();
+                assert.ok(withoutBound.solved);
+                assert.ok(withoutBound.ordering);
+                assertClose(evaluator.evaluate(withoutBound.ordering as number[]).expectedCost, optimum);
+                assertClose(withoutBound.expectedCost, optimum);
+
+                const withBound = new ExactCostOrderingSearch(completed, costModel).run({
+                    upperBoundOrdering: naturalOrdering(depth).reverse()
+                });
+                assert.ok(withBound.solved);
+                assertClose(evaluator.evaluate(withBound.ordering as number[]).expectedCost, optimum);
+
+                const nothingBetter = new ExactCostOrderingSearch(completed, costModel).run({ upperBound: optimum });
+                assert.ok(nothingBetter.solved);
+                assert.strictEqual(nothingBetter.ordering, null);
+            }
+        });
+        it('findOrdering() should find the cheapest ordering for small tables', () => {
+            for (let i = 0; i < 10; i++) {
+                const depth = 1 + Math.floor(Math.random() * 6);
+                const truthTable = randomTable(depth);
+                const functionCosts = randomCosts(depth);
+                const table = parseTruthTable(truthTable);
+                const evaluator = new OrderingEvaluator(table, buildCostModel(table, functionCosts));
+                let optimum = Infinity;
+                allPermutations(naturalOrdering(depth)).forEach(permutation => {
+                    optimum = Math.min(optimum, evaluator.evaluate(permutation).expectedCost);
+                });
+                const result = findOrdering({ truthTable, functionCosts });
+                assertClose(result.expectedCost as number, optimum);
+                assert.strictEqual(result.optimal, true);
+                assert.strictEqual(evaluator.evaluate(result.ordering).nodeCount, result.nodeCount);
+            }
+        });
+        it('should push an expensive boolean function below the level that decides whether it is needed', async () => {
+            // f = x1 ? x0 : x2
+            const truthTable: TruthTable = new Map();
+            for (let row = 0; row < 8; row++) {
+                const key = row.toString(2).padStart(3, '0');
+                truthTable.set(key, key[1] === '1' ? parseInt(key[0], 10) : parseInt(key[2], 10));
+            }
+            const result = await optimizeOrdering({ truthTable, functionCosts: [100, 1, 1] });
+            assert.strictEqual(result.ordering[0], 1);
+            assertClose(result.expectedCost as number, 1 + 100 * 0.5 + 1 * 0.5);
+            assert.strictEqual(result.optimal, true);
+            assertClose(
+                measureExpectedCost(result.bdd, truthTable, [100, 1, 1], () => 1),
+                result.expectedCost as number
+            );
+
+            // when only rows with x1 = 0 occur, x0 is never needed
+            const weighted = await optimizeOrdering({
+                truthTable,
+                functionCosts: [100, 1, 1],
+                rowWeight: key => key[1] === '0' ? 1 : 0
+            });
+            assertClose(weighted.expectedCost as number, 2);
+        });
+        it('should ignore don\'t-care rows in the expected cost', async () => {
+            const truthTable = randomUnknownTable(6);
+            truthTable.set('000000', 1);
+            const functionCosts = randomCosts(6);
+            const result = await optimizeOrdering({ truthTable, dontCareValue: UNKNOWN, functionCosts });
+            ensureCorrectBdd(result.bdd);
+            assertResolvesLikeTable(result.bdd, truthTable, UNKNOWN);
+            assertClose(
+                measureExpectedCost(result.bdd, truthTable, functionCosts, () => 1, UNKNOWN),
+                result.expectedCost as number
+            );
+            const natural = createBddWithOrdering(truthTable, naturalOrdering(6), UNKNOWN);
+            assert.ok((result.expectedCost as number) <= measureExpectedCost(natural, truthTable, functionCosts, () => 1, UNKNOWN) + 1e-9);
+        });
+        it('should be deterministic with costs', () => {
+            const truthTable = randomUnknownTable(7);
+            truthTable.set('0000000', 1);
+            const functionCosts = randomCosts(7);
+            const first = findOrdering({ truthTable, dontCareValue: UNKNOWN, functionCosts });
+            const second = findOrdering({ truthTable, dontCareValue: UNKNOWN, functionCosts });
+            assert.deepStrictEqual(first.ordering, second.ordering);
+            assert.strictEqual(first.expectedCost, second.expectedCost);
+        });
+        it('should validate the cost inputs', () => {
+            const truthTable = randomTable(3);
+            assert.throws(() => findOrdering({ truthTable, functionCosts: [1, 2] }));
+            assert.throws(() => findOrdering({ truthTable, functionCosts: [1, -2, 3] }));
+            assert.throws(() => findOrdering({ truthTable, rowWeight: () => 1 }));
+            assert.throws(() => findOrdering({ truthTable, functionCosts: [1, 2, 3], rowWeight: () => 0 }));
+            assert.strictEqual(findOrdering({ truthTable }).expectedCost, undefined);
         });
     });
 });

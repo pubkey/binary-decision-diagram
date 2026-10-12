@@ -1,7 +1,7 @@
 import type { DenseTruthTable } from './dense-truth-table.js';
 import { naturalOrdering } from './dense-truth-table.js';
 import { OrderingEvaluator } from './ordering-evaluator.js';
-import { IntPairMap } from './int-pair-map.js';
+import { SharedDiagram, StateHeap } from './shared-diagram.js';
 
 export interface ExactOrderingOptions {
     /**
@@ -48,90 +48,6 @@ export interface ExactOrderingResult {
 }
 
 /**
- * binary min-heap of search states, deterministic tie breaking:
- * smaller estimate first, then larger cost (deeper states), then smaller subset
- */
-class StateHeap {
-    private readonly estimates: number[] = [];
-    private readonly costs: number[] = [];
-    private readonly subsets: number[] = [];
-
-    get size(): number {
-        return this.estimates.length;
-    }
-
-    public push(estimate: number, cost: number, subset: number) {
-        this.estimates.push(estimate);
-        this.costs.push(cost);
-        this.subsets.push(subset);
-        let i = this.estimates.length - 1;
-        while (i > 0) {
-            const parent = (i - 1) >> 1;
-            if (this.less(i, parent)) {
-                this.swap(i, parent);
-                i = parent;
-            } else {
-                break;
-            }
-        }
-    }
-
-    public pop(): { estimate: number, cost: number, subset: number } {
-        const ret = {
-            estimate: this.estimates[0],
-            cost: this.costs[0],
-            subset: this.subsets[0]
-        };
-        const last = this.estimates.length - 1;
-        this.swap(0, last);
-        this.estimates.pop();
-        this.costs.pop();
-        this.subsets.pop();
-        let i = 0;
-        const size = this.estimates.length;
-        while (true) {
-            const left = i * 2 + 1;
-            const right = left + 1;
-            let smallest = i;
-            if (left < size && this.less(left, smallest)) {
-                smallest = left;
-            }
-            if (right < size && this.less(right, smallest)) {
-                smallest = right;
-            }
-            if (smallest === i) {
-                break;
-            }
-            this.swap(i, smallest);
-            i = smallest;
-        }
-        return ret;
-    }
-
-    private less(a: number, b: number): boolean {
-        if (this.estimates[a] !== this.estimates[b]) {
-            return this.estimates[a] < this.estimates[b];
-        }
-        if (this.costs[a] !== this.costs[b]) {
-            return this.costs[a] > this.costs[b];
-        }
-        return this.subsets[a] < this.subsets[b];
-    }
-
-    private swap(a: number, b: number) {
-        let tmp = this.estimates[a];
-        this.estimates[a] = this.estimates[b];
-        this.estimates[b] = tmp;
-        tmp = this.costs[a];
-        this.costs[a] = this.costs[b];
-        this.costs[b] = tmp;
-        tmp = this.subsets[a];
-        this.subsets[a] = this.subsets[b];
-        this.subsets[b] = tmp;
-    }
-}
-
-/**
  * The number of nodes on a level of a reduced BDD only depends on the SET of
  * variables above that level, not on their order (Friedman & Supowit, 1990):
  * it is the amount of distinct cofactors with respect to that set that still
@@ -153,65 +69,16 @@ class StateHeap {
  * has to look at a tiny fraction of the 2^n subsets.
  */
 export class ExactOrderingSearch {
+    private readonly diagram: SharedDiagram;
     private readonly n: number;
     private readonly terminalCount: number;
-    /** relevant variables (support of the function) */
-    private readonly relevant: number[];
-    private readonly compactOf: Int32Array;
-
-    // the shared diagram, ids < terminalCount are terminals
-    private nodeVar: Int32Array;
-    private nodeLo: Int32Array;
-    private nodeHi: Int32Array;
-    private nodeSupport: Int32Array;
-    private nodeCount: number;
-    private readonly uniqueTables: IntPairMap[];
-    private readonly restrictMemo: IntPairMap = new IntPairMap(1 << 16);
-    private readonly rootId: number;
 
     constructor(
         private readonly table: DenseTruthTable
     ) {
+        this.diagram = new SharedDiagram(table);
         this.n = table.variableCount;
         this.terminalCount = table.terminalValues.length;
-        const evaluator = new OrderingEvaluator(table);
-        const diagram = evaluator.buildDiagram(naturalOrdering(this.n));
-        const count = diagram.nodeLevel.length;
-        const capacity = Math.max(1024, count * 2);
-        this.nodeVar = new Int32Array(capacity);
-        this.nodeLo = new Int32Array(capacity);
-        this.nodeHi = new Int32Array(capacity);
-        this.nodeSupport = new Int32Array(capacity);
-        this.nodeVar.set(diagram.nodeLevel);
-        this.nodeLo.set(diagram.nodeLo);
-        this.nodeHi.set(diagram.nodeHi);
-        this.nodeCount = count;
-        this.rootId = diagram.root;
-
-        // relevant variables and their compact bit index
-        this.compactOf = new Int32Array(this.n).fill(-1);
-        this.relevant = [];
-        const rootSupport = this.rawSupport(diagram.root);
-        for (let v = 0; v < this.n; v++) {
-            if ((rootSupport & (1 << v)) !== 0) {
-                this.compactOf[v] = this.relevant.length;
-                this.relevant.push(v);
-            }
-        }
-        // support masks in compact bit indexes; children always have smaller ids
-        for (let i = 0; i < count; i++) {
-            this.nodeSupport[i] = this.supportOf(this.nodeLo[i]) |
-                this.supportOf(this.nodeHi[i]) |
-                (1 << this.compactOf[this.nodeVar[i]]);
-        }
-        this.uniqueTables = [];
-        for (let v = 0; v < this.n; v++) {
-            this.uniqueTables.push(new IntPairMap(256));
-        }
-        for (let id = this.terminalCount; id < this.terminalCount + count; id++) {
-            const i = id - this.terminalCount;
-            this.uniqueTables[this.nodeVar[i]].set(this.nodeLo[i], this.nodeHi[i], id);
-        }
     }
 
     /**
@@ -220,24 +87,17 @@ export class ExactOrderingSearch {
      * but ensures the root node tests a relevant boolean function.
      */
     public normalizeOrdering(ordering: ArrayLike<number>): number[] {
-        const relevant: number[] = [];
-        const irrelevant: number[] = [];
-        for (let i = 0; i < ordering.length; i++) {
-            if (this.compactOf[ordering[i]] === -1) {
-                irrelevant.push(ordering[i]);
-            } else {
-                relevant.push(ordering[i]);
-            }
-        }
-        return relevant.concat(irrelevant);
+        return this.diagram.normalizeOrdering(ordering);
     }
 
     public run(options: ExactOrderingOptions = {}): ExactOrderingResult {
         const log = options.log ? options.log : () => null;
         const maxExpansions = options.maxExpansions === undefined ? 200000 : options.maxExpansions;
         const maxCofactorEntries = options.maxCofactorEntries === undefined ? Math.pow(2, 25) : options.maxCofactorEntries;
-        const m = this.relevant.length;
-        const irrelevant = naturalOrdering(this.n).filter(v => this.compactOf[v] === -1);
+        const diagram = this.diagram;
+        const relevant = diagram.relevant;
+        const m = relevant.length;
+        const irrelevant = diagram.irrelevantVariables();
 
         // upper bound
         let upperBound = options.upperBound === undefined ? Infinity : options.upperBound;
@@ -282,7 +142,7 @@ export class ExactOrderingSearch {
         const heap = new StateHeap();
 
         const startSet = new Int32Array(1);
-        startSet[0] = this.rootId;
+        startSet[0] = diagram.rootId;
         cofactors.set(0, startSet);
         bestCost.set(0, 0);
         heap.push(this.estimate(0, startSet), 0, 0);
@@ -327,10 +187,10 @@ export class ExactOrderingSearch {
                 if ((subset & bit) !== 0) {
                     continue;
                 }
-                const variable = this.relevant[c];
+                const variable = relevant[c];
                 let edgeCost = 0;
                 for (let i = 0; i < set.length; i++) {
-                    if ((this.nodeSupport[set[i] - this.terminalCount] & bit) !== 0) {
+                    if ((diagram.supportOf(set[i]) & bit) !== 0) {
                         edgeCost++;
                     }
                 }
@@ -375,7 +235,7 @@ export class ExactOrderingSearch {
         while (remainingSubset !== 0) {
             const variable = parentVariable.get(remainingSubset) as number;
             reversed.push(variable);
-            remainingSubset = remainingSubset & ~(1 << this.compactOf[variable]);
+            remainingSubset = remainingSubset & ~(1 << diagram.compactOf[variable]);
         }
         const ordering = reversed.reverse().concat(irrelevant);
         return {
@@ -393,7 +253,7 @@ export class ExactOrderingSearch {
     private estimate(subset: number, set: Int32Array): number {
         let union = 0;
         for (let i = 0; i < set.length; i++) {
-            union |= this.nodeSupport[set[i] - this.terminalCount];
+            union |= this.diagram.supportOf(set[i]);
         }
         const remaining = union & ~subset;
         let remainingCount = 0;
@@ -407,20 +267,21 @@ export class ExactOrderingSearch {
      * the distinct non-constant cofactors after additionally fixing `variable`
      */
     private cofactorsAfter(set: Int32Array, variable: number): Int32Array {
-        const bit = 1 << this.compactOf[variable];
+        const diagram = this.diagram;
+        const bit = 1 << diagram.compactOf[variable];
         const candidates = new Int32Array(set.length * 2);
         let count = 0;
         for (let i = 0; i < set.length; i++) {
             const g = set[i];
-            if ((this.nodeSupport[g - this.terminalCount] & bit) === 0) {
+            if ((diagram.supportOf(g) & bit) === 0) {
                 candidates[count++] = g;
                 continue;
             }
-            const lo = this.restrict(g, variable, 0);
+            const lo = diagram.restrict(g, variable, 0);
             if (lo >= this.terminalCount) {
                 candidates[count++] = lo;
             }
-            const hi = this.restrict(g, variable, 1);
+            const hi = diagram.restrict(g, variable, 1);
             if (hi >= this.terminalCount) {
                 candidates[count++] = hi;
             }
@@ -433,89 +294,5 @@ export class ExactOrderingSearch {
             }
         }
         return sorted.slice(0, unique);
-    }
-
-    private restrict(g: number, variable: number, value: number): number {
-        if (g < this.terminalCount) {
-            return g;
-        }
-        const index = g - this.terminalCount;
-        if ((this.nodeSupport[index] & (1 << this.compactOf[variable])) === 0) {
-            return g;
-        }
-        const v = this.nodeVar[index];
-        if (v === variable) {
-            return value === 0 ? this.nodeLo[index] : this.nodeHi[index];
-        }
-        const memoKey = variable * 2 + value;
-        const memo = this.restrictMemo.get(g, memoKey);
-        if (memo !== -1) {
-            return memo;
-        }
-        const lo = this.restrict(this.nodeLo[index], variable, value);
-        const hi = this.restrict(this.nodeHi[index], variable, value);
-        const result = this.makeNode(v, lo, hi);
-        this.restrictMemo.set(g, memoKey, result);
-        return result;
-    }
-
-    private makeNode(variable: number, lo: number, hi: number): number {
-        if (lo === hi) {
-            return lo;
-        }
-        const table = this.uniqueTables[variable];
-        const existing = table.get(lo, hi);
-        if (existing !== -1) {
-            return existing;
-        }
-        if (this.nodeCount === this.nodeVar.length) {
-            this.growNodes();
-        }
-        const index = this.nodeCount++;
-        const id = index + this.terminalCount;
-        this.nodeVar[index] = variable;
-        this.nodeLo[index] = lo;
-        this.nodeHi[index] = hi;
-        this.nodeSupport[index] = this.supportOf(lo) | this.supportOf(hi) | (1 << this.compactOf[variable]);
-        table.set(lo, hi, id);
-        return id;
-    }
-
-    private supportOf(id: number): number {
-        return id < this.terminalCount ? 0 : this.nodeSupport[id - this.terminalCount];
-    }
-
-    /**
-     * support in natural variable bits, only used before the compact mapping exists
-     */
-    private rawSupport(id: number): number {
-        const memo: Map<number, number> = new Map();
-        const recurse = (node: number): number => {
-            if (node < this.terminalCount) {
-                return 0;
-            }
-            const known = memo.get(node);
-            if (known !== undefined) {
-                return known;
-            }
-            const index = node - this.terminalCount;
-            const ret = recurse(this.nodeLo[index]) | recurse(this.nodeHi[index]) | (1 << this.nodeVar[index]);
-            memo.set(node, ret);
-            return ret;
-        };
-        return recurse(id);
-    }
-
-    private growNodes() {
-        const capacity = this.nodeVar.length * 2;
-        const grow = (old: Int32Array) => {
-            const ret = new Int32Array(capacity);
-            ret.set(old);
-            return ret;
-        };
-        this.nodeVar = grow(this.nodeVar);
-        this.nodeLo = grow(this.nodeLo);
-        this.nodeHi = grow(this.nodeHi);
-        this.nodeSupport = grow(this.nodeSupport);
     }
 }

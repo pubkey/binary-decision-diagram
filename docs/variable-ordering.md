@@ -129,7 +129,50 @@ run finds a better ordering, the completion of that ordering becomes a new
 candidate. `optimal: true` means: for the returned (completed) truth table no
 ordering gives fewer nodes.
 
-## 4. Building the BDD
+## 4. Cheapest resolve() calls instead of fewest nodes
+
+The boolean functions behind a BDD rarely cost the same to call: one reads a
+flag, another sorts a result set. What matters at runtime is then not the
+amount of nodes but the cost of the functions that are actually called on the
+way from the root to the leaf. With `functionCosts` the optimizer minimizes
+that:
+
+```
+expectedCost(ordering) = sum over levels k of  cost(x_k) * P_k
+```
+
+where `P_k` is the share of the (weighted) rows whose path visits a node on
+level `k`. A row visits a node on level `k` exactly when its cofactor with
+respect to the functions above still depends on `x_k`; the root node always
+calls its function. The bottom-up pass of section 1 computes `P_k` for free by
+carrying the row weights along: whenever a pair of children becomes a node, the
+weight of its block is added to the level. By default every row that is not a
+don't-care row counts the same, `rowWeight` gives rows individual frequencies.
+
+The local search of section 2 works unchanged with the new objective (fewer
+nodes only break ties). The exact search of section 3 works too, because the
+expected cost decomposes over the subset lattice the same way: the edge
+`S -> S + {x}` costs `cost(x)` times the weight of the rows whose cofactor with
+respect to `S` depends on `x`. A state of `ExactCostOrderingSearch` keeps the
+rows with positive weight grouped by cofactor (rows whose cofactor became
+constant are dropped), the admissible estimate for the rest of the path is,
+for every function not yet placed, its cost times the weight of the rows that
+are sensitive to it, because those rows pay for it in every ordering.
+
+On the 17 variable test table with sample costs (fourteen cheap functions,
+three expensive ones costing 20, 50 and 100):
+
+| ordering | nodes | expected cost per resolve() |
+| --- | --- | --- |
+| natural order | 187 | 122.6 |
+| fewest nodes (`optimizeOrdering` without costs) | 77 | 112.5 |
+| cheapest calls (`optimizeOrdering` with `functionCosts`) | 154 | **38.3**, proven optimal |
+
+The expensive functions move to the bottom where only the rows that really
+need them pay for them. The cost reported by the optimizer equals the cost
+measured by calling `resolve()` with counting resolver functions on every row.
+
+## 5. Building the BDD
 
 The best ordering is turned into the library's node structure directly from the
 reduced diagram (`createBddWithOrdering()`), so the unreduced tree with
@@ -138,7 +181,7 @@ has the same shape as the BDDs of `optimizeBruteForce()`: the level of a node
 is the index of the boolean function it tests, and `bddToMinimalString()`
 works as before.
 
-## 5. Results
+## 6. Results
 
 Numbers from an ordinary laptop, `npm run build` of this repository.
 "Brute force" is `optimizeBruteForce()` with the given number of iterations,
@@ -157,7 +200,7 @@ Uniformly random functions have no structure to exploit, every ordering is
 equally bad; the exact search proves that in milliseconds instead of leaving
 the brute force running forever.
 
-## 6. Porting the method to another BDD implementation
+## 7. Porting the method to another BDD implementation
 
 Only `evaluate()` (section 1) and `restrict`/`cost` (section 3) touch the
 function representation, and both only need the truth table. Everything else
@@ -165,15 +208,15 @@ is plain integer arithmetic. A port needs:
 
 1. the truth table as a flat array indexed by the row bits,
 2. the bottom-up hash-consing pass of section 1 (one hash table, two integer
-   buffers),
+   buffers; plus two weight buffers for the cost objective of section 4),
 3. adjacent level swaps as bit permutations of the row index,
 4. the local search of section 2,
-5. optionally the A* search of section 3, which needs a hash-consed diagram
-   with `restrict` and per-node support masks.
+5. optionally the A* searches of sections 3 and 4, which need a hash-consed
+   diagram with `restrict` and per-node support masks.
 
 The code in `src/ordering/` is written to be read in that order.
 
-## 7. Limitations and further work
+## 8. Limitations and further work
 
 - The truth table must be complete (`2^n` rows), so the method is for
   functions with up to roughly 24 boolean functions. Dynamic reordering inside

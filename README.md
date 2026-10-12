@@ -142,6 +142,25 @@ result.optimal;    // true when it is proven that no ordering gives fewer nodes
 result.truthTable; // the truth table with the don't-care rows resolved, in the original key order
 ```
 
+When the boolean functions have different runtime costs, pass them and the optimizer
+minimizes the expected cost of one `resolve()` call (the costs of the functions that are
+actually called on the way from the root to the leaf, averaged over the rows) instead of the amount of nodes.
+Expensive functions then end up on the levels where they are needed least often.
+
+```typescript
+const result = await optimizeOrdering({
+    truthTable,
+    dontCareValue: unknownValueActionId,
+    // cost of calling each boolean function, one entry per character of the truth table keys
+    functionCosts: [1, 1, 50, 1, 20],
+    // (optional) how often a row occurs at runtime, default: every row equally often
+    rowWeight: (key, value) => key.startsWith('1') ? 10 : 1
+});
+
+result.expectedCost; // expected cost of one resolve() call
+result.optimal;      // true when it is proven that no ordering has a lower expected cost
+```
+
 Use `findOrdering()` with the same options when you only need the ordering and not the BDD,
 and `createBddWithOrdering(truthTable, ordering, dontCareValue)` to build the minimized BDD for a known ordering
 without going through the full decision tree.
