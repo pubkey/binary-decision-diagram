@@ -501,6 +501,9 @@ describe('optimize-ordering.test.ts', () => {
             assert.throws(() => new LocalOrderingSearch(evaluator, naturalOrdering(5), { maxRounds: 1.5 }));
             const oneRound = new LocalOrderingSearch(evaluator, naturalOrdering(5), { maxRounds: 1 }).run();
             assert.ok(oneRound.nodeCount > 0);
+            const noRounds = findOrdering({ truthTable, maxRounds: 0, exact: false });
+            assert.ok(noRounds.nodeCount > 0);
+            assert.throws(() => findOrdering({ truthTable, maxRounds: -1 }));
         });
         it('should not claim optimality after a hook changed the bdd', async () => {
             const truthTable = randomUnknownTable(5);

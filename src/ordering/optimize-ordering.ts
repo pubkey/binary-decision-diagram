@@ -62,6 +62,11 @@ export interface FindOrderingInput {
     maxExactExpansions?: number;
     /** Default: 3 */
     windowSize?: number;
+    /**
+     * Maximum amount of sifting + window permutation rounds per start ordering.
+     * Default: 50
+     */
+    maxRounds?: number;
     log?: boolean;
     /** called whenever a better ordering was found */
     onImprovement?: OrderingProgressCallback;
@@ -218,6 +223,7 @@ export function findOrdering(input: FindOrderingInput): FindOrderingResult {
     for (const seed of seeds) {
         const search = new LocalOrderingSearch(baseEvaluator, seed.ordering, {
             windowSize,
+            maxRounds: input.maxRounds,
             log: message => log('[' + seed.name + '] ' + message),
             onImprovement: progress => {
                 if (!localBest || baseEvaluator.isBetter(search.best, localBest.evaluation)) {
