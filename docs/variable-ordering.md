@@ -3,7 +3,7 @@
 The size of a (reduced, ordered) binary decision diagram depends heavily on the
 order in which the boolean functions are tested. For the same truth table one
 ordering can need ten times as many nodes as another, and finding the best
-ordering is NP-complete.
+ordering is NP-complete (Bollig and Wegener, 1996).
 
 Until version 3 this library only offered `optimizeBruteForce()`, which shuffles
 the ordering randomly, builds the whole decision tree, minimizes it and keeps
@@ -15,6 +15,10 @@ different results.
 implementation independent: everything it needs is the truth table, so the
 same algorithm can be used as a pre-pass by any BDD implementation in any
 language. This document describes the method so that it can be ported.
+
+None of the underlying ideas are new: the method combines results from the
+BDD literature of the 1990s and 2000s (see section 9) and applies them to a
+function that is given as a truth table.
 
 ## 1. Evaluate orderings without building a BDD
 
@@ -240,3 +244,55 @@ The code in `src/ordering/` is written to be read in that order.
   gives the globally smallest BDD is itself NP-hard; the alternation between
   completion and exact ordering search is a heuristic for it.
 - Symmetric variables could be grouped to shrink the search space further.
+
+## 9. Prior work
+
+The building blocks of `optimizeOrdering()` and where they come from:
+
+- **Level sizes depend only on the set of functions above a level**, which
+  turns the search for the optimal ordering into a shortest path problem in
+  the lattice of variable subsets (section 3). S. J. Friedman and K. J.
+  Supowit, "Finding the optimal variable ordering for binary decision
+  diagrams", IEEE Transactions on Computers 39(5), 1990 (first presented at
+  DAC 1987). Their dynamic program needs O(n² 3ⁿ) time.
+- **Exact minimization with lower bounds**, which visits only a fraction of the
+  subsets: R. Drechsler, N. Drechsler and W. Günther, "Fast exact minimization
+  of BDDs", DAC 1998 / IEEE Transactions on CAD 19(3), 2000; R. Ebendt, W.
+  Günther and R. Drechsler, "An improved branch and bound algorithm for exact
+  BDD minimization", IEEE Transactions on CAD 22(12), 2003, and "Combining
+  ordered best-first search with branch and bound for exact BDD minimization",
+  IEEE Transactions on CAD 24(10), 2005. The A* search of section 3 and its
+  lower bound (the number of distinct non-constant cofactors) follow this work.
+- **Sifting** (section 2): R. Rudell, "Dynamic variable ordering for ordered
+  binary decision diagrams", ICCAD 1993.
+- **Window permutation** (section 2): N. Ishiura, H. Sawada and S. Yajima,
+  "Minimization of binary decision diagrams based on exchanges of variables",
+  ICCAD 1991; M. Fujita, Y. Matsunaga and T. Kakuda, "On variable ordering of
+  binary decision diagrams for the application of multi-level logic
+  synthesis", EDAC 1991.
+- **Minimizing the expected cost of an evaluation instead of the node count**
+  (section 4): Y.-Y. Liu, K.-H. Wang, T. T. Hwang and C. L. Liu, "Binary
+  decision diagrams with minimum expected path length", DATE 2001; S. Nagayama,
+  A. Mishchenko, T. Sasao and J. T. Butler, "Minimization of average path
+  length in BDDs by variable reordering", IWLS 2003; R. Ebendt and R.
+  Drechsler, "Minimization of the expected path length in BDDs based on local
+  changes", ASP-DAC 2005, and "Exact BDD minimization for path-related
+  objective functions", 2005/2006. Costs per boolean function and weights per
+  row are a small generalization of the expected path length.
+- **Don't-care rows**: resolving them to make the BDD smaller is the subject of
+  O. Coudert and J. C. Madre, "A unified framework for the formal verification
+  of sequential circuits", ICCAD 1990 (the restrict and constrain operators);
+  T. R. Shiple, R. Hojati, A. L. Sangiovanni-Vincentelli and R. K. Brayton,
+  "Heuristic minimization of BDDs using don't cares", DAC 1994; Y. Hong, P. A.
+  Beerel, J. R. Burch and K. L. McMillan, "Safe BDD minimization using don't
+  cares", DAC 1997. The sibling collapse of `removeIrrelevantLeafNodes()` is a
+  simple special case.
+- **NP-completeness of finding the optimal ordering**: B. Bollig and I.
+  Wegener, "Improving the variable ordering of OBDDs is NP-complete", IEEE
+  Transactions on Computers 45(9), 1996.
+
+What this library adds is the engineering around these results: the
+evaluation of orderings directly on the truth table without node objects, the
+block indexing that lets a swap recompute only the levels above it, the exact
+search seeded with the local search result, and the alternation between the
+don't-care completion and the exact search.
