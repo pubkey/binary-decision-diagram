@@ -1,6 +1,8 @@
 import type { BooleanString, NonRootNode, NonLeafNode } from './types.js';
 import { AbstractNode } from './abstract-node.js';
 
+export const BRANCH_KEYS: BooleanString[] = ['0', '1'];
+
 /**
  * represents the branches of a single node
  */
