@@ -46,20 +46,31 @@ export interface FindOrderingInput {
      */
     initialOrderings?: number[][];
     /**
-     * - 'auto' (default): run the exact search when the truth table has
-     *   at most maxExactVariables boolean functions
-     * - true: always run the exact search (limited by maxExactExpansions)
+     * - 'auto' (default): run the exact search when the truth table has at
+     *   most maxExactVariables boolean functions and the BDD found by the local
+     *   search has at most maxExactNodeCount internal nodes (unstructured
+     *   functions have big BDDs, and on them the exact search is slow and
+     *   cannot gain much)
+     * - true: always run the exact search (within the budgets below)
      * - false: never
      */
     exact?: boolean | 'auto';
     /** Default: 20 */
     maxExactVariables?: number;
+    /** Default: 5000 */
+    maxExactNodeCount?: number;
     /**
      * Budget of the exact search per candidate completion of the truth table.
      * A candidate whose search exceeds it cannot be proven optimal.
      * Default: 200000
      */
     maxExactExpansions?: number;
+    /**
+     * Memory budget of the exact search: the maximum amount of nodes of its
+     * internal diagram (roughly 100 bytes each).
+     * Default: 4000000
+     */
+    maxExactDiagramNodes?: number;
     /** Default: 3 */
     windowSize?: number;
     /**
@@ -258,7 +269,15 @@ export function findOrdering(input: FindOrderingInput): FindOrderingResult {
     let exactExpansions = 0;
     const exactMode = input.exact === undefined ? 'auto' : input.exact;
     const maxExactVariables = input.maxExactVariables === undefined ? 20 : input.maxExactVariables;
-    const runExact = exactMode === true || (exactMode === 'auto' && n <= maxExactVariables);
+    const maxExactNodeCount = input.maxExactNodeCount === undefined ? 5000 : input.maxExactNodeCount;
+    const runExact = exactMode === true || (
+        exactMode === 'auto' &&
+        n <= maxExactVariables &&
+        best.evaluation.internalNodeCount <= maxExactNodeCount
+    );
+    if (exactMode === 'auto' && !runExact) {
+        log('exact search skipped: ' + n + ' boolean functions, ' + best.evaluation.internalNodeCount + ' internal nodes');
+    }
     if (runExact) {
         const candidates: { ordering: number[], table: DenseTruthTable }[] = [];
         const seenCompletions: Set<string> = new Set();
@@ -293,8 +312,9 @@ export function findOrdering(input: FindOrderingInput): FindOrderingResult {
             let exactOrdering: number[] | null;
             let solved: boolean;
             let expansions: number;
+            const searchOptions = { maxDiagramNodes: input.maxExactDiagramNodes };
             if (costModel) {
-                const exactResult = new ExactCostOrderingSearch(candidate.table, costModel).run({
+                const exactResult = new ExactCostOrderingSearch(candidate.table, costModel, searchOptions).run({
                     maxExpansions: input.maxExactExpansions,
                     upperBoundOrdering: candidate.ordering,
                     // only orderings that beat the best known one are interesting
@@ -305,7 +325,7 @@ export function findOrdering(input: FindOrderingInput): FindOrderingResult {
                 solved = exactResult.solved;
                 expansions = exactResult.expansions;
             } else {
-                const exactResult = new ExactOrderingSearch(candidate.table).run({
+                const exactResult = new ExactOrderingSearch(candidate.table, searchOptions).run({
                     maxExpansions: input.maxExactExpansions,
                     upperBoundOrdering: candidate.ordering,
                     upperBound: best.evaluation.nodeCount - candidate.table.leafCount,

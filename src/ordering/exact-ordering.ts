@@ -1,7 +1,7 @@
 import type { DenseTruthTable } from './dense-truth-table.js';
 import { naturalOrdering } from './dense-truth-table.js';
 import { OrderingEvaluator } from './ordering-evaluator.js';
-import { SharedDiagram, StateHeap } from './shared-diagram.js';
+import { SharedDiagram, StateHeap, DiagramBudgetExceededError, DEFAULT_MAX_DIAGRAM_NODES } from './shared-diagram.js';
 
 export interface ExactOrderingOptions {
     /**
@@ -40,7 +40,7 @@ export interface ExactOrderingResult {
      * below it either.
      */
     ordering: number[] | null;
-    /** amount of internal (non-leaf) nodes of `ordering` */
+    /** amount of internal (non-leaf) nodes of `ordering`, -1 when ordering is null */
     internalNodeCount: number;
     /** amount of expanded states */
     expansions: number;
@@ -75,12 +75,16 @@ export class ExactOrderingSearch {
     private readonly terminalCount: number;
 
     constructor(
-        private readonly table: DenseTruthTable
+        private readonly table: DenseTruthTable,
+        options: { maxDiagramNodes?: number } = {}
     ) {
         if (table.dontCareTerminal >= 0) {
             throw new Error('the exact search needs a truth table without don\'t-care rows, resolve them with OrderingEvaluator.complete() first');
         }
-        this.diagram = new SharedDiagram(table);
+        this.diagram = new SharedDiagram(
+            table,
+            options.maxDiagramNodes === undefined ? DEFAULT_MAX_DIAGRAM_NODES : options.maxDiagramNodes
+        );
         this.n = table.variableCount;
         this.terminalCount = table.terminalValues.length;
     }
@@ -121,11 +125,14 @@ export class ExactOrderingSearch {
             return {
                 solved: false,
                 ordering: incumbent,
-                internalNodeCount: upperBound,
+                internalNodeCount: incumbent ? upperBound : -1,
                 expansions: expansionCount,
                 generated: generatedCount
             };
         };
+        if (diagram.overBudget) {
+            return giveUp('diagram budget exceeded', 0, 0);
+        }
 
         if (m === 0) {
             // constant function
@@ -156,6 +163,7 @@ export class ExactOrderingSearch {
         let storedEntries = 1;
         let solvedSet = -1;
         let solvedCost = -1;
+        try {
         while (heap.size > 0) {
             const state = heap.pop();
             const currentCost = state.cost;
@@ -221,13 +229,19 @@ export class ExactOrderingSearch {
                 heap.push(estimate, nextCost, nextSubset);
             }
         }
+        } catch (err) {
+            if (err instanceof DiagramBudgetExceededError) {
+                return giveUp('diagram budget exceeded', expansions, generated);
+            }
+            throw err;
+        }
 
         if (solvedSet === -1) {
             // no ordering below the upper bound exists: the incumbent (if any) is optimal
             return {
                 solved: true,
                 ordering: incumbent,
-                internalNodeCount: upperBound,
+                internalNodeCount: incumbent ? upperBound : -1,
                 expansions,
                 generated
             };

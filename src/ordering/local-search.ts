@@ -1,4 +1,4 @@
-import { OrderingEvaluator, OrderingEvaluation, PermutedTable } from './ordering-evaluator.js';
+import { OrderingEvaluator, OrderingEvaluation, OrderingCursor } from './ordering-evaluator.js';
 import { ensureValidOrdering, naturalOrdering } from './dense-truth-table.js';
 
 export interface OrderingProgress {
@@ -120,7 +120,7 @@ function allPermutations(size: number): number[][] {
 export class LocalOrderingSearch {
     public best: OrderingEvaluation;
 
-    private readonly permuted: PermutedTable;
+    private readonly cursor: OrderingCursor;
     private readonly n: number;
     private readonly windowPermutations: number[][];
     private readonly windowSize: number;
@@ -135,8 +135,8 @@ export class LocalOrderingSearch {
     ) {
         this.n = evaluator.variableCount;
         ensureValidOrdering(initialOrdering, this.n);
-        this.permuted = evaluator.permute(initialOrdering);
-        this.best = evaluator.evaluatePermuted(this.permuted);
+        this.cursor = evaluator.cursor(initialOrdering);
+        this.best = this.cursor.evaluation;
         const windowSize = options.windowSize === undefined ? 3 : options.windowSize;
         if (!Number.isInteger(windowSize) || windowSize < 0) {
             throw new Error('windowSize must be a non-negative integer');
@@ -159,7 +159,7 @@ export class LocalOrderingSearch {
      * ordering[level] = boolean function tested on that level
      */
     get ordering(): number[] {
-        return this.permuted.ordering;
+        return this.cursor.ordering;
     }
 
     get nodeCount(): number {
@@ -236,7 +236,7 @@ export class LocalOrderingSearch {
                     const step = position < target ? 1 : -1;
                     this.swapAdjacent(step === 1 ? position : position - 1);
                     position += step;
-                    const evaluation = this.evaluator.evaluatePermuted(this.permuted);
+                    const evaluation = this.cursor.evaluation;
                     if (this.evaluator.isBetter(evaluation, bestEvaluation)) {
                         bestEvaluation = evaluation;
                         bestPosition = position;
@@ -279,7 +279,7 @@ export class LocalOrderingSearch {
             let bestPermutation: number[] | null = null;
             for (const permutation of this.windowPermutations) {
                 this.setWindow(windowStart, original, permutation);
-                const evaluation = this.evaluator.evaluatePermuted(this.permuted);
+                const evaluation = this.cursor.evaluation;
                 if (this.evaluator.isBetter(evaluation, bestEvaluation)) {
                     bestEvaluation = evaluation;
                     bestPermutation = permutation;
@@ -319,7 +319,7 @@ export class LocalOrderingSearch {
     }
 
     private swapLevels(levelA: number, levelB: number) {
-        this.evaluator.swapLevels(this.permuted, levelA, levelB);
+        this.cursor.swap(levelA, levelB);
     }
 
     /**

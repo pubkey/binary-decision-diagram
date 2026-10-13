@@ -1,7 +1,7 @@
 import type { DenseTruthTable } from './dense-truth-table.js';
 import { naturalOrdering } from './dense-truth-table.js';
 import { OrderingEvaluator, CostModel, COST_EPSILON } from './ordering-evaluator.js';
-import { SharedDiagram, StateHeap } from './shared-diagram.js';
+import { SharedDiagram, StateHeap, DiagramBudgetExceededError, DEFAULT_MAX_DIAGRAM_NODES } from './shared-diagram.js';
 
 export interface ExactCostOrderingOptions {
     /**
@@ -39,7 +39,7 @@ export interface ExactCostOrderingResult {
      * below it either.
      */
     ordering: number[] | null;
-    /** expected cost of one resolve() call with `ordering` */
+    /** expected cost of one resolve() call with `ordering`, -1 when ordering is null */
     expectedCost: number;
     expansions: number;
     generated: number;
@@ -88,12 +88,16 @@ export class ExactCostOrderingSearch {
 
     constructor(
         private readonly table: DenseTruthTable,
-        private readonly costModel: CostModel
+        private readonly costModel: CostModel,
+        options: { maxDiagramNodes?: number } = {}
     ) {
         if (table.dontCareTerminal >= 0) {
             throw new Error('the exact search needs a truth table without don\'t-care rows, resolve them with OrderingEvaluator.complete() first');
         }
-        this.diagram = new SharedDiagram(table);
+        this.diagram = new SharedDiagram(
+            table,
+            options.maxDiagramNodes === undefined ? DEFAULT_MAX_DIAGRAM_NODES : options.maxDiagramNodes
+        );
         this.n = table.variableCount;
         this.costs = costModel.functionCosts;
         const rowWeights = costModel.rowWeights;
@@ -168,10 +172,14 @@ export class ExactCostOrderingSearch {
         ): ExactCostOrderingResult => ({
             solved,
             ordering,
-            expectedCost: cost / total,
+            expectedCost: ordering ? cost / total : -1,
             expansions: expansionCount,
             generated: generatedCount
         });
+        if (diagram.overBudget) {
+            log('exact cost search: diagram budget exceeded');
+            return result(false, incumbent, upperBound, 0, 0);
+        }
 
         if (m === 0) {
             // constant function: only the root pays, so the cheapest function goes on top
@@ -208,6 +216,7 @@ export class ExactCostOrderingSearch {
         let storedRows = startRows.length;
         let solvedSet = -1;
         let solvedCost = -1;
+        try {
         while (heap.size > 0) {
             const state = heap.pop();
             const currentCost = state.cost;
@@ -266,6 +275,13 @@ export class ExactCostOrderingSearch {
                 closed.delete(nextSubset);
                 heap.push(estimate, nextCost, nextSubset);
             }
+        }
+        } catch (err) {
+            if (err instanceof DiagramBudgetExceededError) {
+                log('exact cost search: diagram budget exceeded');
+                return result(false, incumbent, upperBound, expansions, generated);
+            }
+            throw err;
         }
 
         if (solvedSet === -1) {

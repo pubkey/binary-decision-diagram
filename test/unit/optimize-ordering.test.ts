@@ -150,6 +150,37 @@ function measureExpectedCost(
     return total / weightSum;
 }
 
+/**
+ * a random table with the given amount of distinct values
+ */
+function randomValuedTable(depth: number, values: number, dontCareShare: number = 0): TruthTable {
+    const table: TruthTable = new Map();
+    for (let row = 0; row < Math.pow(2, depth); row++) {
+        const value = Math.random() < dontCareShare ? UNKNOWN : 1 + Math.floor(Math.random() * values);
+        table.set(row.toString(2).padStart(depth, '0'), value);
+    }
+    table.set('0'.repeat(depth), 1);
+    return table;
+}
+
+/**
+ * f = x0*x4 + x1*x5 + x2*x6 + x3*x7: the natural ordering is bad, the interleaved one is small
+ */
+function interleavedTable(): TruthTable {
+    const table: TruthTable = new Map();
+    for (let row = 0; row < 256; row++) {
+        const key = row.toString(2).padStart(8, '0');
+        let value = 1;
+        for (let i = 0; i < 4; i++) {
+            if (key[i] === '1' && key[i + 4] === '1') {
+                value = 2;
+            }
+        }
+        table.set(key, value);
+    }
+    return table;
+}
+
 function randomCosts(depth: number): number[] {
     const costs: number[] = [];
     for (let i = 0; i < depth; i++) {
@@ -208,6 +239,31 @@ describe('optimize-ordering.test.ts', () => {
             assert.throws(() => parseTruthTable(truthTable));
         });
     });
+    describe('OrderingCursor', () => {
+        it('should stay consistent with fresh evaluations through random swaps', () => {
+            for (let i = 0; i < 30; i++) {
+                const depth = 1 + Math.floor(Math.random() * 7);
+                const useDontCare = i % 2 === 0;
+                const useCosts = i % 3 === 0;
+                const truthTable = randomValuedTable(depth, 1 + Math.floor(Math.random() * 4), useDontCare ? Math.random() * 0.8 : 0);
+                const table = parseTruthTable(truthTable, useDontCare ? UNKNOWN : undefined);
+                const costModel = useCosts ? buildCostModel(table, randomCosts(depth), (key: string) => 1 + (parseInt(key, 2) % 3)) : null;
+                const evaluator = new OrderingEvaluator(table, costModel);
+                const cursor = evaluator.cursor(shuffleArray(naturalOrdering(depth)));
+                for (let step = 0; step < 15; step++) {
+                    const a = Math.floor(Math.random() * depth);
+                    const b = Math.floor(Math.random() * depth);
+                    cursor.swap(a, b);
+                    const fresh = evaluator.evaluate(cursor.ordering);
+                    assert.deepStrictEqual(cursor.evaluation.nodesPerLevel, fresh.nodesPerLevel);
+                    assert.strictEqual(cursor.evaluation.nodeCount, fresh.nodeCount);
+                    assertClose(cursor.evaluation.expectedCost, fresh.expectedCost);
+                    const libraryBdd = bddViaLibrary(truthTable, cursor.ordering, useDontCare ? UNKNOWN : undefined);
+                    assert.strictEqual(cursor.evaluation.nodeCount, libraryBdd.countNodes());
+                }
+            }
+        });
+    });
     describe('createBddWithOrdering()', () => {
         it('should create a correct and minimal bdd', () => {
             for (let i = 0; i < 20; i++) {
@@ -238,8 +294,9 @@ describe('optimize-ordering.test.ts', () => {
         it('should find the optimum of all permutations', () => {
             for (let i = 0; i < 30; i++) {
                 const depth = 1 + Math.floor(Math.random() * 6);
-                const truthTable = randomTable(depth);
-                const table = parseTruthTable(truthTable);
+                const truthTable = randomValuedTable(depth, 1 + Math.floor(Math.random() * 4), i % 2 === 0 ? 0.5 : 0);
+                // the exact search needs a fully specified function
+                const table = new OrderingEvaluator(parseTruthTable(truthTable, UNKNOWN)).complete(naturalOrdering(depth));
                 const evaluator = new OrderingEvaluator(table);
                 let optimum = Infinity;
                 allPermutations(naturalOrdering(depth)).forEach(permutation => {
@@ -270,6 +327,19 @@ describe('optimize-ordering.test.ts', () => {
             const table = parseTruthTable(truthTable);
             const result = new ExactOrderingSearch(table).run({ maxExpansions: 2 });
             assert.strictEqual(result.solved, false);
+            assert.strictEqual(result.ordering, null);
+            assert.strictEqual(result.internalNodeCount, -1);
+            const tiny = new ExactOrderingSearch(table, { maxDiagramNodes: 1 }).run();
+            assert.strictEqual(tiny.solved, false);
+            const small = new ExactOrderingSearch(table, { maxDiagramNodes: 300 }).run({
+                upperBoundOrdering: naturalOrdering(8)
+            });
+            assert.ok(!small.solved || small.ordering);
+        });
+        it('should reject tables with don\'t-care rows', () => {
+            const truthTable = randomUnknownTable(4);
+            truthTable.set('0000', 1);
+            assert.throws(() => new ExactOrderingSearch(parseTruthTable(truthTable, UNKNOWN)));
         });
     });
     describe('LocalOrderingSearch', () => {
@@ -366,17 +436,22 @@ describe('optimize-ordering.test.ts', () => {
             assert.strictEqual(result.optimal, true);
         });
         it('should call the hooks', async () => {
-            const truthTable = randomTable(6);
-            let improvements = 0;
+            const truthTable = interleavedTable();
+            const reported: number[] = [];
             let hookCalled = false;
             const result = await optimizeOrdering({
                 truthTable,
-                onImprovement: () => improvements++,
+                onImprovement: progress => reported.push(progress.nodeCount),
                 afterBddCreation: () => hookCalled = true
             });
-            assert.ok(result.bdd);
             assert.ok(hookCalled);
-            assert.ok(improvements >= 0);
+            // the natural ordering of this table has 32 nodes, the interleaved one 10
+            assert.strictEqual(result.nodeCount, 10);
+            assert.ok(reported.length > 0);
+            for (let i = 1; i < reported.length; i++) {
+                assert.ok(reported[i] < reported[i - 1]);
+            }
+            assert.strictEqual(reported[reported.length - 1], result.nodeCount);
         });
         it('should keep the key order of the levels and the resolvers in sync', async () => {
             const truthTable = randomTable(5);
@@ -474,9 +549,14 @@ describe('optimize-ordering.test.ts', () => {
             const auto = findOrdering({ truthTable, maxExactVariables: 3 });
             assert.strictEqual(auto.optimal, false);
             assert.strictEqual(auto.stats.exactExpansions, 0);
-            const forced = findOrdering({ truthTable, exact: true, maxExactVariables: 3 });
+            const bigBdd = findOrdering({ truthTable, maxExactNodeCount: 1 });
+            assert.strictEqual(bigBdd.optimal, false);
+            assert.strictEqual(bigBdd.stats.exactExpansions, 0);
+            const forced = findOrdering({ truthTable, exact: true, maxExactVariables: 3, maxExactNodeCount: 1 });
             assert.strictEqual(forced.optimal, true);
             assert.ok(forced.nodeCount <= auto.nodeCount);
+            const noMemory = findOrdering({ truthTable: randomTable(8), exact: true, maxExactDiagramNodes: 1 });
+            assert.strictEqual(noMemory.optimal, false);
         });
         it('should use initial orderings in the given order and ignore duplicates', () => {
             const truthTable = randomTable(5);

@@ -22,23 +22,28 @@ The central building block is `OrderingEvaluator.evaluate(ordering)`, which
 returns the exact number of nodes of the reduced BDD for an ordering in
 `O(2^n)` integer operations and without creating a single node object.
 
-The rows of the truth table are first permuted so that the boolean function on
-level `k` of the ordering corresponds to bit `n-1-k` of the row index. The
-`2^n` rows are the leaves of the decision tree. The reduced BDD is then built
-bottom-up, level by level:
+The `2^n` rows are the leaves of the decision tree. A *block* on level `k` is
+the set of rows that agree on the boolean functions above level `k`; the
+reduced BDD is built bottom-up, level by level, by merging the two child
+blocks of every block:
 
 ```
-ids = terminal id of every row                     // level n
+ids[n] = terminal id of every row
 for level k = n-1 down to 0:
-    for every pair (lo, hi) = (ids[2i], ids[2i+1]):
+    for every block b of level k:
+        (lo, hi) = ids[k+1] of the two children of b (function ordering[k] = 0 / 1)
         if lo == DONT_CARE:   id = hi               // don't-care collapse
         elif hi == DONT_CARE: id = lo
         elif lo == hi:        id = lo               // reduction rule
         else:                 id = hashcons(lo, hi) // elimination rule
-        next[i] = id
+        ids[k][b] = id
     nodes[k] = number of ids created by hashcons on this level
-    ids = next
 ```
+
+Blocks are indexed by the assignment to the functions above them in their
+natural (index) order, not in level order. The blocks of a level therefore only
+depend on the *set* of functions above it, which is the key to the cheap local
+search below.
 
 `hashcons` returns the same id for the same `(lo, hi)` pair, so isomorphic
 sub-diagrams share one node. Equal children are not represented by a node at
@@ -58,11 +63,14 @@ ordering and `complete(ordering)` returns the truth table with the don't-care
 rows resolved. The optimizer returns this completed table together with the
 BDD.
 
-Moving a variable to a neighbouring level is a permutation of two bits of the
-row index, so during the local search a single adjacent swap plus re-evaluation
-costs `O(2^n)` and needs no allocation. For the 17 variable table of the test
-suite one evaluation takes about two milliseconds; the old approach needs
-seconds per ordering.
+`OrderingCursor` keeps the `ids[k]` arrays of an ordering. When the functions
+of two levels are swapped, the levels below the lower one keep their blocks and
+ids (same sets of functions above them), only the levels from the lower one up
+to the root are recomputed. Moving a function from the top to the bottom with
+adjacent swaps therefore costs `O(2^n)` in total instead of `O(n * 2^n)`. For
+the 17 variable table of the test suite a full evaluation takes about two
+milliseconds and a whole sifting round well under a second; the old approach
+needs seconds per ordering.
 
 ## 2. Deterministic local search
 
@@ -118,9 +126,15 @@ costs `cost(S, x)`.
   beat it are never queued. With a tight bound the search visits a small
   fraction of the `2^n` subsets. For the 17 variable test table it expands
   about 10 000 of 131 072 subsets in a third of a second and proves that the
-  77 node ordering found by the local search is optimal.
-- Expansion and memory budgets make the search give up gracefully; the result
-  then says `optimal: false`.
+  77 node ordering found by the local search (1.7 s) is optimal.
+- Budgets make the search give up gracefully, the result then says
+  `optimal: false`: a limit on expanded subsets, on stored cofactor sets and
+  on the nodes of the shared diagram (`restrict` creates nodes for the
+  restricted functions, which adds up on unstructured functions).
+- By default the exact search only runs when the local search found a BDD with
+  at most 5000 internal nodes. Unstructured functions have big BDDs, every
+  ordering is about equally bad for them, and the lower bound prunes almost
+  nothing, so the search would be slow for no gain. `exact: true` forces it.
 
 Don't-care rows make the function depend on the ordering, so the exact search
 runs on completed tables: the completion of the best ordering and the
@@ -189,7 +203,7 @@ Numbers from an ordinary laptop, `npm run build` of this repository.
 
 | truth table | variables | natural order | brute force | deterministic |
 | --- | --- | --- | --- | --- |
-| event-reduce table from the test suite (576 defined rows, rest don't-care) | 17 | 187 nodes | 112 nodes, 150 iterations, 351 s | **77 nodes, proven optimal, 13 s** |
+| event-reduce table from the test suite (576 defined rows, rest don't-care) | 17 | 187 nodes | 112 nodes, 150 iterations, 351 s | **77 nodes, proven optimal, 4 s** |
 | structured, 50 % don't-care | 8 | 60 | 36 (100 iterations, 1.5 s) | **30, proven optimal, 0.04 s** |
 | structured, 50 % don't-care | 10 | 156 | 33 (60 iterations, 7.4 s) | **31, proven optimal, 0.07 s** |
 | structured, 70 % don't-care | 12 | 344 | 78 (25 iterations, 16.8 s) | **30, proven optimal, 0.16 s** |
@@ -207,9 +221,9 @@ function representation, and both only need the truth table. Everything else
 is plain integer arithmetic. A port needs:
 
 1. the truth table as a flat array indexed by the row bits,
-2. the bottom-up hash-consing pass of section 1 (one hash table, two integer
-   buffers; plus two weight buffers for the cost objective of section 4),
-3. adjacent level swaps as bit permutations of the row index,
+2. the bottom-up hash-consing pass of section 1 with one id array per level
+   (plus one weight array per level for the cost objective of section 4),
+3. level swaps that recompute only the levels above the swapped ones,
 4. the local search of section 2,
 5. optionally the A* searches of sections 3 and 4, which need a hash-consed
    diagram with `restrict` and per-node support masks.

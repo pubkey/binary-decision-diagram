@@ -4,6 +4,17 @@ import { OrderingEvaluator } from './ordering-evaluator.js';
 import { IntPairMap } from './int-pair-map.js';
 
 /**
+ * thrown by SharedDiagram when more nodes than allowed would be created
+ */
+export class DiagramBudgetExceededError extends Error {
+    constructor() {
+        super('the exact search would need more diagram nodes than allowed');
+    }
+}
+
+export const DEFAULT_MAX_DIAGRAM_NODES = 4000000;
+
+/**
  * A hash-consed decision diagram of a fully specified truth table in the
  * natural variable order, with a restrict() operation.
  *
@@ -27,10 +38,18 @@ export class SharedDiagram {
     private nodeCount: number;
     private readonly uniqueTables: IntPairMap[];
     private readonly restrictMemo: IntPairMap = new IntPairMap(1 << 16);
+    private readonly maxNodes: number;
 
     constructor(
-        public readonly table: DenseTruthTable
+        public readonly table: DenseTruthTable,
+        /**
+         * restrict() creates nodes for the restricted functions, which can be a lot
+         * on unstructured functions. More nodes than this throw a DiagramBudgetExceededError.
+         * Default: 4000000 (roughly 400 MB)
+         */
+        maxNodes: number = DEFAULT_MAX_DIAGRAM_NODES
     ) {
+        this.maxNodes = maxNodes;
         this.variableCount = table.variableCount;
         this.terminalCount = table.terminalValues.length;
         const evaluator = new OrderingEvaluator(table);
@@ -75,6 +94,16 @@ export class SharedDiagram {
 
     public isTerminal(id: number): boolean {
         return id < this.terminalCount;
+    }
+
+    /** amount of internal nodes created so far */
+    public get size(): number {
+        return this.nodeCount;
+    }
+
+    /** true when the diagram of the natural ordering alone already exceeds the node budget */
+    public get overBudget(): boolean {
+        return this.nodeCount > this.maxNodes;
     }
 
     /**
@@ -144,6 +173,9 @@ export class SharedDiagram {
         const existing = table.get(lo, hi);
         if (existing !== -1) {
             return existing;
+        }
+        if (this.nodeCount >= this.maxNodes) {
+            throw new DiagramBudgetExceededError();
         }
         if (this.nodeCount === this.nodeVar.length) {
             this.growNodes();

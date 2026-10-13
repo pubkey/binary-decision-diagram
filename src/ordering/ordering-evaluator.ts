@@ -1,3 +1,5 @@
+// OrderingEvaluator and OrderingCursor use each other, so one of them is used before its declaration
+// tslint:disable:no-use-before-declare
 import type { DenseTruthTable } from './dense-truth-table.js';
 import { ensureValidOrdering, withTerminalIds } from './dense-truth-table.js';
 
@@ -38,17 +40,6 @@ export interface OrderingEvaluation {
 }
 
 /**
- * The truth table permuted into the row order of an ordering:
- * the value of boolean function ordering[k] is bit (n - 1 - k) of the row index.
- */
-export interface PermutedTable {
-    ordering: number[];
-    ids: Int32Array;
-    /** row weights in the same order, null without cost model */
-    weights: Float64Array | null;
-}
-
-/**
  * A reduced ordered (multi terminal) decision diagram
  * in a flat array representation. Ids below terminalCount are terminals
  * (and equal the terminal id of the dense truth table), ids from terminalCount
@@ -70,6 +61,12 @@ export interface ReducedDiagram {
     nodesPerLevel: number[];
 }
 
+interface DiagramRecord {
+    nodeLevel: Int32Array;
+    nodeLo: Int32Array;
+    nodeHi: Int32Array;
+}
+
 /**
  * relative tolerance for comparing expected costs
  */
@@ -79,12 +76,20 @@ export const COST_EPSILON = 1e-9;
  * Evaluates variable orderings of a truth table without ever creating
  * BDD node objects.
  *
- * The reduced BDD is built bottom-up: the rows of the (permuted) truth table are
- * the leaves, every level above merges pairs of children into nodes through a
- * hash table (hash-consing). Equal children collapse to a single edge (reduction
- * rule) and equal (child0, child1) pairs share one node (elimination rule), so the
- * amount of nodes created per level is exactly the amount of nodes the reduced
- * BDD has on that level. Everything runs in O(2^n) integer operations.
+ * The reduced BDD is built bottom-up: the rows of the truth table are the
+ * leaves, every level above merges the two children of each block into a node
+ * through a hash table (hash-consing). Equal children collapse to a single edge
+ * (reduction rule) and equal (child0, child1) pairs share one node (elimination
+ * rule), so the amount of nodes created per level is exactly the amount of
+ * nodes the reduced BDD has on that level. Everything runs in O(2^n) integer
+ * operations.
+ *
+ * A block on level L is the set of rows that agree on the boolean functions
+ * above level L. Blocks are indexed by the assignment to those functions in
+ * their natural (index) order, not in the order of the levels. That way the
+ * blocks of a level only depend on the SET of functions above it: when two
+ * levels swap their functions, nothing below them changes and OrderingCursor
+ * only recomputes the levels above.
  *
  * Don't-care rows are handled like RootNode.removeIrrelevantLeafNodes() does it:
  * a node whose one branch is entirely don't-care is replaced by its other branch.
@@ -94,26 +99,19 @@ export const COST_EPSILON = 1e-9;
  * resolve() call: a row pays for the boolean function of a level exactly when
  * its block on that level has a node. The root node always calls its boolean
  * function, even when the function is irrelevant.
- *
- * Buffers are allocated once and reused, so a single evaluator instance should
- * be used for many evaluations.
  */
 export class OrderingEvaluator {
     public readonly variableCount: number;
     public readonly rowCount: number;
+    public readonly terminalCount: number;
+    public readonly dontCare: number;
     /** amount of evaluations run so far */
     public evaluations: number = 0;
 
-    private readonly terminalCount: number;
-    private readonly dontCare: number;
-    private readonly bufA: Int32Array;
-    private readonly bufB: Int32Array;
-    private readonly weightBufA: Float64Array | null;
-    private readonly weightBufB: Float64Array | null;
     private readonly hashLo: Int32Array;
     private readonly hashHi: Int32Array;
     private readonly hashId: Int32Array;
-    private readonly scratch: PermutedTable;
+    private scratch: OrderingCursor | null = null;
 
     constructor(
         public readonly table: DenseTruthTable,
@@ -128,11 +126,6 @@ export class OrderingEvaluator {
                 throw new Error('cost model does not fit the truth table');
             }
         }
-        const half = Math.max(1, this.rowCount >>> 1);
-        this.bufA = new Int32Array(half);
-        this.bufB = new Int32Array(half);
-        this.weightBufA = costModel ? new Float64Array(half) : null;
-        this.weightBufB = costModel ? new Float64Array(half) : null;
         // at most rowCount/2 distinct nodes per level -> load factor <= 0.5
         let hashSize = 16;
         while (hashSize < this.rowCount) {
@@ -141,83 +134,26 @@ export class OrderingEvaluator {
         this.hashLo = new Int32Array(hashSize);
         this.hashHi = new Int32Array(hashSize);
         this.hashId = new Int32Array(hashSize);
-        this.scratch = this.newPermutedTable();
-    }
-
-    /**
-     * Permutes the table into the row order of `ordering`,
-     * into `target` when given.
-     */
-    public permute(ordering: ArrayLike<number>, target: PermutedTable = this.newPermutedTable()): PermutedTable {
-        ensureValidOrdering(ordering, this.variableCount);
-        const n = this.variableCount;
-        const src = this.table.terminalIds;
-        const srcWeights = this.costModel ? this.costModel.rowWeights : null;
-        const out = target.ids;
-        const outWeights = target.weights;
-        const srcBit = new Int32Array(n);
-        const dstBit = new Int32Array(n);
-        for (let k = 0; k < n; k++) {
-            srcBit[k] = n - 1 - ordering[k];
-            dstBit[k] = n - 1 - k;
-        }
-        for (let row = 0; row < this.rowCount; row++) {
-            let targetRow = 0;
-            for (let k = 0; k < n; k++) {
-                targetRow |= ((row >>> srcBit[k]) & 1) << dstBit[k];
-            }
-            out[targetRow] = src[row];
-            if (outWeights && srcWeights) {
-                outWeights[targetRow] = srcWeights[row];
-            }
-        }
-        target.ordering = Array.from(ordering);
-        return target;
-    }
-
-    /**
-     * Swaps the boolean functions of two levels inside a permuted table in place.
-     */
-    public swapLevels(permuted: PermutedTable, levelA: number, levelB: number) {
-        if (levelA === levelB) {
-            return;
-        }
-        const n = this.variableCount;
-        const maskA = 1 << (n - 1 - levelA);
-        const maskB = 1 << (n - 1 - levelB);
-        const both = maskA | maskB;
-        const ids = permuted.ids;
-        const weights = permuted.weights;
-        for (let row = 0; row < this.rowCount; row++) {
-            if ((row & both) === maskA) {
-                const other = row ^ both;
-                const tmp = ids[row];
-                ids[row] = ids[other];
-                ids[other] = tmp;
-                if (weights) {
-                    const tmpWeight = weights[row];
-                    weights[row] = weights[other];
-                    weights[other] = tmpWeight;
-                }
-            }
-        }
-        const tmpVariable = permuted.ordering[levelA];
-        permuted.ordering[levelA] = permuted.ordering[levelB];
-        permuted.ordering[levelB] = tmpVariable;
     }
 
     /**
      * Evaluates an ordering.
      */
     public evaluate(ordering: ArrayLike<number>): OrderingEvaluation {
-        return this.evaluatePermuted(this.permute(ordering, this.scratch));
+        if (!this.scratch) {
+            this.scratch = new OrderingCursor(this, ordering);
+        } else {
+            this.scratch.reset(ordering);
+        }
+        return this.scratch.evaluation;
     }
 
     /**
-     * Evaluates an already permuted table (see permute()).
+     * A cursor keeps the intermediate results of an ordering so that
+     * swapping two levels only recomputes the levels above them.
      */
-    public evaluatePermuted(permuted: PermutedTable): OrderingEvaluation {
-        return this.run(permuted, null).evaluation;
+    public cursor(ordering: ArrayLike<number>): OrderingCursor {
+        return new OrderingCursor(this, ordering);
     }
 
     /**
@@ -249,191 +185,264 @@ export class OrderingEvaluator {
      * Builds the reduced diagram of an ordering.
      */
     public buildDiagram(ordering: ArrayLike<number>): ReducedDiagram {
-        const permuted = this.permute(ordering);
-        const n = this.variableCount;
-        const nodeLevel = new Int32Array(Math.max(1, this.rowCount));
-        const nodeLo = new Int32Array(Math.max(1, this.rowCount));
-        const nodeHi = new Int32Array(Math.max(1, this.rowCount));
-        const result = this.run(permuted, { nodeLevel, nodeLo, nodeHi });
-        const count = result.evaluation.internalNodeCount;
+        const capacity = Math.max(1, this.rowCount);
+        const record: DiagramRecord = {
+            nodeLevel: new Int32Array(capacity),
+            nodeLo: new Int32Array(capacity),
+            nodeHi: new Int32Array(capacity)
+        };
+        const cursor = new OrderingCursor(this, ordering, record);
+        const count = cursor.evaluation.internalNodeCount;
         return {
-            variableCount: n,
+            variableCount: this.variableCount,
             terminalCount: this.terminalCount,
-            root: result.root,
-            nodeLevel: nodeLevel.subarray(0, count),
-            nodeLo: nodeLo.subarray(0, count),
-            nodeHi: nodeHi.subarray(0, count),
+            root: cursor.root,
+            nodeLevel: record.nodeLevel.subarray(0, count),
+            nodeLo: record.nodeLo.subarray(0, count),
+            nodeHi: record.nodeHi.subarray(0, count),
             ordering: Array.from(ordering),
-            nodesPerLevel: result.evaluation.nodesPerLevel
+            nodesPerLevel: cursor.evaluation.nodesPerLevel
         };
     }
 
     /**
      * Resolves the don't-care rows the same way the BDD of the given ordering
      * resolves them (a don't-care branch takes the value of its sibling branch)
-     * and returns a table without don't-care rows in the original row order.
+     * and returns a table without don't-care rows.
      * When the table has no don't-care rows, the same table is returned.
      */
     public complete(ordering: ArrayLike<number>): DenseTruthTable {
         if (this.dontCare < 0) {
             return this.table;
         }
+        const diagram = this.buildDiagram(ordering);
         const n = this.variableCount;
-        const permuted = this.permute(ordering).ids;
-        const dc = this.dontCare;
-
-        // isDontCare[b] tells whether block b of the current block size is entirely don't-care
-        let isDontCare = new Uint8Array(this.rowCount);
-        for (let row = 0; row < this.rowCount; row++) {
-            isDontCare[row] = permuted[row] === dc ? 1 : 0;
-        }
-        for (let blockSize = 1; blockSize < this.rowCount; blockSize *= 2) {
-            const blocks = this.rowCount / (blockSize * 2);
-            const nextIsDontCare = new Uint8Array(blocks);
-            for (let b = 0; b < blocks; b++) {
-                const leftDc = isDontCare[b * 2];
-                const rightDc = isDontCare[b * 2 + 1];
-                const leftStart = b * blockSize * 2;
-                const rightStart = leftStart + blockSize;
-                if (leftDc === 1 && rightDc === 0) {
-                    permuted.copyWithin(leftStart, rightStart, rightStart + blockSize);
-                } else if (rightDc === 1 && leftDc === 0) {
-                    permuted.copyWithin(rightStart, leftStart, leftStart + blockSize);
-                }
-                nextIsDontCare[b] = (leftDc === 1 && rightDc === 1) ? 1 : 0;
-            }
-            isDontCare = nextIsDontCare;
-        }
-
-        // un-permute into the natural row order
+        const terminalCount = this.terminalCount;
         const terminalIds = new Int32Array(this.rowCount);
-        const srcBit = new Int32Array(n);
-        const dstBit = new Int32Array(n);
-        for (let k = 0; k < n; k++) {
-            srcBit[k] = n - 1 - k;
-            dstBit[k] = n - 1 - ordering[k];
-        }
         let stillDontCare = false;
         for (let row = 0; row < this.rowCount; row++) {
-            let target = 0;
-            for (let k = 0; k < n; k++) {
-                target |= ((row >>> srcBit[k]) & 1) << dstBit[k];
+            let id = diagram.root;
+            while (id >= terminalCount) {
+                const index = id - terminalCount;
+                const variable = diagram.ordering[diagram.nodeLevel[index]];
+                id = ((row >>> (n - 1 - variable)) & 1) === 0 ? diagram.nodeLo[index] : diagram.nodeHi[index];
             }
-            terminalIds[target] = permuted[row];
-            if (permuted[row] === dc) {
+            terminalIds[row] = id;
+            if (id === this.dontCare) {
                 stillDontCare = true;
             }
         }
-        return withTerminalIds(this.table, terminalIds, stillDontCare ? dc : -1);
+        return withTerminalIds(this.table, terminalIds, stillDontCare ? this.dontCare : -1);
     }
 
-    private newPermutedTable(): PermutedTable {
-        return {
-            ordering: [],
-            ids: new Int32Array(this.rowCount),
-            weights: this.costModel ? new Float64Array(this.rowCount) : null
-        };
-    }
-
-    private run(
-        permuted: PermutedTable,
-        record: { nodeLevel: Int32Array, nodeLo: Int32Array, nodeHi: Int32Array } | null
-    ): { evaluation: OrderingEvaluation, root: number } {
-        this.evaluations++;
-        const n = this.variableCount;
+    /**
+     * Computes the blocks of one level out of the blocks of the level below.
+     * @internal
+     */
+    public computeLevel(
+        ordering: number[],
+        level: number,
+        deeperIds: Int32Array,
+        deeperWeights: Float64Array | null,
+        ids: Int32Array,
+        weights: Float64Array | null,
+        firstId: number,
+        record: DiagramRecord | null
+    ): { created: number, payingWeight: number } {
         const dc = this.dontCare;
         const terminalCount = this.terminalCount;
         const hashLo = this.hashLo;
         const hashHi = this.hashHi;
         const hashId = this.hashId;
-        const nodesPerLevel: number[] = new Array(n).fill(0);
-        const levelWeights: number[] = new Array(n).fill(0);
-        const withWeights = this.costModel !== null && permuted.weights !== null;
-
-        let cur: Int32Array = permuted.ids;
-        let curWeights: Float64Array | null = withWeights ? permuted.weights : null;
-        let nextId = terminalCount;
-        for (let level = n - 1; level >= 0; level--) {
-            const half = 1 << level;
-            const even = (level & 1) === 0;
-            const next = even ? this.bufA : this.bufB;
-            const nextWeights = withWeights ? (even ? this.weightBufA : this.weightBufB) : null;
-            let tableSize = 16;
-            while (tableSize < half * 2) {
-                tableSize *= 2;
-            }
-            const mask = tableSize - 1;
-            hashLo.fill(-1, 0, tableSize);
-            let created = 0;
-            let levelWeight = 0;
-            for (let i = 0; i < half; i++) {
-                const lo = cur[2 * i];
-                const hi = cur[2 * i + 1];
-                let blockWeight = 0;
-                if (curWeights && nextWeights) {
-                    blockWeight = curWeights[2 * i] + curWeights[2 * i + 1];
-                    nextWeights[i] = blockWeight;
-                }
-                let id: number;
-                if (lo === dc) {
-                    id = hi;
-                } else if (hi === dc || lo === hi) {
-                    id = lo;
-                } else {
-                    levelWeight += blockWeight;
-                    let h = (Math.imul(lo, 0x9E3779B1) ^ Math.imul(hi, 0x85EBCA77)) >>> 0;
-                    h = (h ^ (h >>> 15)) & mask;
-                    while (true) {
-                        const storedLo = hashLo[h];
-                        if (storedLo === -1) {
-                            hashLo[h] = lo;
-                            hashHi[h] = hi;
-                            hashId[h] = nextId;
-                            id = nextId;
-                            if (record) {
-                                record.nodeLevel[nextId - terminalCount] = level;
-                                record.nodeLo[nextId - terminalCount] = lo;
-                                record.nodeHi[nextId - terminalCount] = hi;
-                            }
-                            nextId++;
-                            created++;
-                            break;
-                        }
-                        if (storedLo === lo && hashHi[h] === hi) {
-                            id = hashId[h];
-                            break;
-                        }
-                        h = (h + 1) & mask;
-                    }
-                }
-                next[i] = id;
-            }
-            nodesPerLevel[level] = created;
-            levelWeights[level] = levelWeight;
-            cur = next;
-            curWeights = nextWeights;
+        const count = 1 << level;
+        let tableSize = 16;
+        while (tableSize < count * 2) {
+            tableSize *= 2;
         }
+        const mask = tableSize - 1;
+        hashLo.fill(-1, 0, tableSize);
 
+        // the position of this level's function inside the index of the level below:
+        // the functions above the level below are sorted ascending, the largest one is bit 0
+        const variable = ordering[level];
+        let position = 0;
+        for (let k = 0; k <= level; k++) {
+            if (ordering[k] > variable) {
+                position++;
+            }
+        }
+        const lowMask = (1 << position) - 1;
+        const hiBit = 1 << position;
+
+        let nextId = firstId;
+        let created = 0;
+        let payingWeight = 0;
+        for (let block = 0; block < count; block++) {
+            const loIndex = ((block >>> position) << (position + 1)) | (block & lowMask);
+            const hiIndex = loIndex | hiBit;
+            const lo = deeperIds[loIndex];
+            const hi = deeperIds[hiIndex];
+            let blockWeight = 0;
+            if (deeperWeights && weights) {
+                blockWeight = deeperWeights[loIndex] + deeperWeights[hiIndex];
+                weights[block] = blockWeight;
+            }
+            let id: number;
+            if (lo === dc) {
+                id = hi;
+            } else if (hi === dc || lo === hi) {
+                id = lo;
+            } else {
+                payingWeight += blockWeight;
+                let h = (Math.imul(lo, 0x9E3779B1) ^ Math.imul(hi, 0x85EBCA77)) >>> 0;
+                h = (h ^ (h >>> 15)) & mask;
+                while (true) {
+                    const storedLo = hashLo[h];
+                    if (storedLo === -1) {
+                        hashLo[h] = lo;
+                        hashHi[h] = hi;
+                        hashId[h] = nextId;
+                        id = nextId;
+                        if (record) {
+                            record.nodeLevel[nextId - terminalCount] = level;
+                            record.nodeLo[nextId - terminalCount] = lo;
+                            record.nodeHi[nextId - terminalCount] = hi;
+                        }
+                        nextId++;
+                        created++;
+                        break;
+                    }
+                    if (storedLo === lo && hashHi[h] === hi) {
+                        id = hashId[h];
+                        break;
+                    }
+                    h = (h + 1) & mask;
+                }
+            }
+            ids[block] = id;
+        }
+        return { created, payingWeight };
+    }
+}
+
+/**
+ * An ordering together with the intermediate results of its evaluation.
+ *
+ * levelIds[L] holds the ids of the 2^L blocks of level L (levelIds[n] are the
+ * rows of the truth table). Because blocks are indexed by the natural
+ * assignment to the functions above their level, swapping the functions of two
+ * levels keeps all levels below the lower one valid, only the levels from the
+ * lower one up to the root are recomputed.
+ */
+export class OrderingCursor {
+    public readonly ordering: number[];
+    public evaluation: OrderingEvaluation;
+    /** id of the root block, a terminal when the function is constant */
+    public root: number = 0;
+
+    private readonly n: number;
+    private readonly levelIds: Int32Array[] = [];
+    private readonly levelWeights: Float64Array[] | null;
+    private readonly created: number[];
+    private readonly payingWeights: number[];
+
+    constructor(
+        private readonly evaluator: OrderingEvaluator,
+        ordering: ArrayLike<number>,
+        private readonly record: DiagramRecord | null = null
+    ) {
+        this.n = evaluator.variableCount;
+        ensureValidOrdering(ordering, this.n);
+        this.ordering = Array.from(ordering);
+        for (let level = 0; level < this.n; level++) {
+            this.levelIds.push(new Int32Array(1 << level));
+        }
+        this.levelIds.push(evaluator.table.terminalIds);
+        if (evaluator.costModel) {
+            this.levelWeights = [];
+            for (let level = 0; level < this.n; level++) {
+                this.levelWeights.push(new Float64Array(1 << level));
+            }
+            this.levelWeights.push(evaluator.costModel.rowWeights);
+        } else {
+            this.levelWeights = null;
+        }
+        this.created = new Array(this.n).fill(0);
+        this.payingWeights = new Array(this.n).fill(0);
+        this.evaluation = this.recomputeFrom(this.n - 1);
+    }
+
+    /**
+     * Starts over with another ordering.
+     */
+    public reset(ordering: ArrayLike<number>) {
+        ensureValidOrdering(ordering, this.n);
+        for (let i = 0; i < this.n; i++) {
+            this.ordering[i] = ordering[i];
+        }
+        this.evaluation = this.recomputeFrom(this.n - 1);
+    }
+
+    /**
+     * Swaps the boolean functions of two levels and updates the evaluation.
+     */
+    public swap(levelA: number, levelB: number) {
+        if (levelA === levelB) {
+            return;
+        }
+        const tmp = this.ordering[levelA];
+        this.ordering[levelA] = this.ordering[levelB];
+        this.ordering[levelB] = tmp;
+        this.evaluation = this.recomputeFrom(Math.max(levelA, levelB));
+    }
+
+    /**
+     * recomputes the levels top .. 0 (the levels below stay as they are)
+     */
+    private recomputeFrom(top: number): OrderingEvaluation {
+        this.evaluator.evaluations++;
+        const n = this.n;
+        const terminalCount = this.evaluator.terminalCount;
+        // ids used by the levels below `top`
+        let nextId = terminalCount;
+        for (let level = n - 1; level > top; level--) {
+            nextId += this.created[level];
+        }
+        for (let level = top; level >= 0; level--) {
+            const result = this.evaluator.computeLevel(
+                this.ordering,
+                level,
+                this.levelIds[level + 1],
+                this.levelWeights ? this.levelWeights[level + 1] : null,
+                this.levelIds[level],
+                this.levelWeights ? this.levelWeights[level] : null,
+                nextId,
+                this.record
+            );
+            this.created[level] = result.created;
+            this.payingWeights[level] = result.payingWeight;
+            nextId += result.created;
+        }
+        this.root = this.levelIds[0][0];
+
+        const nodesPerLevel = this.created.slice();
         const internalNodeCount = nextId - terminalCount;
-        const nodeCount = 1 + (internalNodeCount - nodesPerLevel[0]) + this.table.leafCount;
+        const nodeCount = 1 + (internalNodeCount - nodesPerLevel[0]) + this.evaluator.table.leafCount;
         let expectedCost = 0;
-        if (this.costModel && withWeights) {
-            const costs = this.costModel.functionCosts;
-            const ordering = permuted.ordering;
+        const costModel = this.evaluator.costModel;
+        if (costModel) {
+            const costs = costModel.functionCosts;
             // the root node always calls its boolean function
-            expectedCost = costs[ordering[0]];
+            expectedCost = costs[this.ordering[0]];
             for (let level = 1; level < n; level++) {
-                expectedCost += costs[ordering[level]] * levelWeights[level] / this.costModel.totalWeight;
+                expectedCost += costs[this.ordering[level]] * this.payingWeights[level] / costModel.totalWeight;
             }
         }
         return {
-            evaluation: {
-                nodesPerLevel,
-                internalNodeCount,
-                nodeCount,
-                expectedCost
-            },
-            root: cur[0]
+            nodesPerLevel,
+            internalNodeCount,
+            nodeCount,
+            expectedCost
         };
     }
 }
