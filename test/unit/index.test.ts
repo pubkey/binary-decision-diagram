@@ -5,3 +5,4 @@ import './minimize-level-zero.test.js';
 import './resolve.test.js';
 import './simple-bdd.test.js';
 import './optimize-brute-force.test.js';
+import './reduction-both-branches.test.js';

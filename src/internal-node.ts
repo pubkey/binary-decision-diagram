@@ -1,4 +1,4 @@
-import { Branches } from './branches.js';
+import { Branches, BRANCH_KEYS } from './branches.js';
 import { Parents } from './parents.js';
 import { RootNode } from './root-node.js';
 import { AbstractNode } from './abstract-node.js';
@@ -35,9 +35,12 @@ export class InternalNode extends AbstractNode {
             // move own parents to keepBranch
             const ownParents = this.parents.getAll();
             ownParents.forEach(parent => {
-                // console.log('ownParent: ' + parent.id);
-                const branchKey = parent.branches.getKeyOfNode(this);
-                parent.branches.setBranch(branchKey, keepBranch);
+                // a parent (the root node) can have this node in both branches
+                BRANCH_KEYS.forEach(branchKey => {
+                    if (parent.branches.getBranch(branchKey) === this) {
+                        parent.branches.setBranch(branchKey, keepBranch);
+                    }
+                });
 
                 // remove parents from own list
                 // this will auto-remove the connection to the other '1'-branch
