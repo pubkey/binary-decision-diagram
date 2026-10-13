@@ -1,0 +1,232 @@
+# When a PR contains both test changes and source changes,
+# this workflow runs the changed tests WITHOUT the source changes
+# to verify that the tests actually reproduce the bug.
+# - Tests FAILING without the fix = expected (confirms the test catches the bug)
+# - Tests PASSING without the fix = warning (the test might not verify the bugfix)
+# The workflow is informational only: it never fails the PR, it posts a comment.
+
+name: Verify Test Reproduction
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  test-without-fix:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Check for changed test and source files
+        id: check-changes
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          MERGE_BASE=$(git merge-base "$BASE_SHA" "$HEAD_SHA")
+
+          # test files are the *.test.ts files and the helpers they use
+          CHANGED_TESTS=$(git diff --name-only "$MERGE_BASE" "$HEAD_SHA" -- 'test/' \
+            | grep -E '\.test\.ts$|^test/helper/' || true)
+          CHANGED_SRC=$(git diff --name-only "$MERGE_BASE" "$HEAD_SHA" -- 'src/')
+
+          if [ -z "$CHANGED_TESTS" ]; then
+            echo "No test files changed, skipping"
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -z "$CHANGED_SRC" ]; then
+            echo "No source files changed (test-only PR), skipping"
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # the performance tests have their own entry point
+          RUN_UNIT=false
+          RUN_PERFORMANCE=false
+          while IFS= read -r TEST_FILE; do
+            [ -z "$TEST_FILE" ] && continue
+            case "$TEST_FILE" in
+              test/performance/*)
+                RUN_PERFORMANCE=true
+                ;;
+              test/helper/*)
+                RUN_UNIT=true
+                RUN_PERFORMANCE=true
+                ;;
+              *)
+                RUN_UNIT=true
+                ;;
+            esac
+          done <<< "$CHANGED_TESTS"
+
+          echo "should_run=true" >> "$GITHUB_OUTPUT"
+          echo "run_unit=$RUN_UNIT" >> "$GITHUB_OUTPUT"
+          echo "run_performance=$RUN_PERFORMANCE" >> "$GITHUB_OUTPUT"
+          echo "Changed test files:"
+          echo "$CHANGED_TESTS"
+          echo ""
+          echo "Changed source files:"
+          echo "$CHANGED_SRC"
+          echo ""
+          echo "Run unit tests: $RUN_UNIT"
+          echo "Run performance tests: $RUN_PERFORMANCE"
+
+      - name: Use Node.js
+        if: steps.check-changes.outputs.should_run == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24.21.0
+
+      - name: Apply test changes to base branch code
+        if: steps.check-changes.outputs.should_run == 'true'
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          MERGE_BASE=$(git merge-base "$BASE_SHA" "$HEAD_SHA")
+
+          # Save the test directory changes as a patch
+          git diff "$MERGE_BASE" "$HEAD_SHA" -- test/ > /tmp/test-changes.patch
+
+          # Checkout the merge base (code state before this PR)
+          git checkout "$MERGE_BASE"
+
+          # Apply only the test changes on top of the unfixed code
+          git apply /tmp/test-changes.patch
+
+      - name: Install dependencies
+        if: steps.check-changes.outputs.should_run == 'true'
+        run: npm install
+
+      - name: Build
+        if: steps.check-changes.outputs.should_run == 'true'
+        id: build
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run build 2>&1 | tee /tmp/build-output.txt
+
+      - name: Run unit tests (expect failure)
+        if: steps.check-changes.outputs.should_run == 'true' && steps.check-changes.outputs.run_unit == 'true' && steps.build.outcome == 'success'
+        id: run-tests-unit
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npx mocha ./dist/cjs/test/unit/index.test.js --timeout 40000 2>&1 | tee /tmp/test-unit-output.txt
+
+      - name: Run performance tests (expect failure)
+        if: steps.check-changes.outputs.should_run == 'true' && steps.check-changes.outputs.run_performance == 'true' && steps.build.outcome == 'success'
+        id: run-tests-performance
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npx mocha ./dist/cjs/test/performance/index.test.js --timeout 120000 2>&1 | tee /tmp/test-performance-output.txt
+
+      - name: Evaluate results
+        if: steps.check-changes.outputs.should_run == 'true'
+        run: |
+          echo "== Test-Without-Fix Results =="
+          echo ""
+          # Combine test outputs into a single file
+          : > /tmp/test-output.txt
+          if [ -f /tmp/test-unit-output.txt ]; then
+            echo "=== unit test output ===" >> /tmp/test-output.txt
+            cat /tmp/test-unit-output.txt >> /tmp/test-output.txt
+            echo "" >> /tmp/test-output.txt
+          fi
+          if [ -f /tmp/test-performance-output.txt ]; then
+            echo "=== performance test output ===" >> /tmp/test-output.txt
+            cat /tmp/test-performance-output.txt >> /tmp/test-output.txt
+            echo "" >> /tmp/test-output.txt
+          fi
+
+          if [ "${{ steps.build.outcome }}" == "failure" ]; then
+            echo "✅ Build FAILED without the source changes."
+            echo "This confirms the test requires the source changes from this PR."
+            COMMENT_ICON="✅"
+            COMMENT_TITLE="Build FAILED without the source changes (expected)"
+            COMMENT_BODY="This confirms the source changes in this PR are required for the build to succeed."
+            OUTPUT_FILE="/tmp/build-output.txt"
+          elif [ "${{ steps.run-tests-unit.outcome }}" == "failure" ] || [ "${{ steps.run-tests-performance.outcome }}" == "failure" ]; then
+            echo "✅ Tests FAILED without the fix."
+            echo "This confirms the test correctly reproduces the bug."
+            COMMENT_ICON="✅"
+            COMMENT_TITLE="Tests FAILED without the fix (expected)"
+            COMMENT_BODY="This confirms the changed tests correctly reproduce the bug that the source changes fix."
+            OUTPUT_FILE="/tmp/test-output.txt"
+          else
+            echo "⚠️ Tests PASSED without the fix."
+            echo "The changed tests do not fail without the source changes from this PR."
+            echo "Please inspect whether the test changes actually test the bug that the source changes fix."
+            COMMENT_ICON="⚠️"
+            COMMENT_TITLE="Tests PASSED without the fix (unexpected)"
+            COMMENT_BODY="The changed tests do not fail without the source changes from this PR. Please inspect whether the test changes actually test the bug that the source changes fix."
+            OUTPUT_FILE="/tmp/test-output.txt"
+          fi
+          echo ""
+          echo "This workflow is informational only. Inspect the output above to verify the test reproduces the bug."
+
+          # Write comment header to file
+          {
+            printf '## %s Verify Test Reproduction: %s\n\n' "$COMMENT_ICON" "$COMMENT_TITLE"
+            printf '%s\n\n' "$COMMENT_BODY"
+            printf '%s\n\n' '_This workflow runs the changed tests **without** the source changes to verify they reproduce the bug._'
+          } > /tmp/pr-comment.md
+
+          # Append truncated output if available
+          if [ -f "$OUTPUT_FILE" ]; then
+            TOTAL_LINES=$(wc -l < "$OUTPUT_FILE")
+            printf '<details>\n<summary>Show output</summary>\n\n```\n' >> /tmp/pr-comment.md
+            if [ "$TOTAL_LINES" -gt 200 ]; then
+              printf '...(truncated, showing last 200 of %s lines)\n' "$TOTAL_LINES" >> /tmp/pr-comment.md
+              tail -200 "$OUTPUT_FILE" >> /tmp/pr-comment.md
+            else
+              cat "$OUTPUT_FILE" >> /tmp/pr-comment.md
+            fi
+            printf '\n```\n\n</details>\n\n' >> /tmp/pr-comment.md
+          fi
+
+          echo "[View full workflow run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> /tmp/pr-comment.md
+          cat /tmp/pr-comment.md >> "$GITHUB_STEP_SUMMARY"
+
+          exit 0
+
+      - name: Post or update PR comment
+        if: steps.check-changes.outputs.should_run == 'true'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const commentBody = fs.readFileSync('/tmp/pr-comment.md', 'utf8');
+            const marker = '<!-- test-without-fix-bot -->';
+            const body = marker + '\n' + commentBody;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const existing = comments.find(c => c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
