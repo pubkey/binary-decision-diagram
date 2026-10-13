@@ -1,6 +1,6 @@
 import { nextNodeId } from './util.js';
 import type { NonRootNode, NonLeafNode, NodeType } from './types.js';
-import { Branches } from './branches.js';
+import { Branches, BRANCH_KEYS } from './branches.js';
 import { RootNode } from './root-node.js';
 import { InternalNode } from './internal-node.js';
 import { LeafNode } from './leaf-node.js';
@@ -177,10 +177,12 @@ export class AbstractNode {
             const ownParents = (this as any).parents.getAll();
             const parentsWithStrictEqualBranches: NonLeafNode[] = [];
             ownParents.forEach((parent: InternalNode) => {
-                // console.log('ownParent: ' + parent.id);
-                const branchKey = parent.branches.getKeyOfNode(this as any);
-                // console.log('branchKey: ' + branchKey);
-                parent.branches.setBranch(branchKey, other);
+                // a parent (the root node) can have this node in both branches
+                BRANCH_KEYS.forEach(branchKey => {
+                    if (parent.branches.getBranch(branchKey) === (this as any)) {
+                        parent.branches.setBranch(branchKey, other);
+                    }
+                });
 
                 if (parent.branches.areBranchesStrictEqual()) {
                     parentsWithStrictEqualBranches.push(parent);
