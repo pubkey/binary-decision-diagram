@@ -87,7 +87,7 @@ export class RootNode extends AbstractNode {
             }
             let successCount = 0;
             let lastLevel = lastOfArray(this.getLevels());
-            while (lastLevel > 0) {
+            while (lastLevel >= 0) {
                 const nodes: InternalNode[] = this.getNodesOfLevel(lastLevel) as InternalNode[];
                 if (logState) {
                     console.log(
