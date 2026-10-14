@@ -159,6 +159,8 @@ BDDs can be very big so an effective storage format was needed.
 const minimalString = bddToMinimalString(bdd)
 ```
 
+Each leaf value is stored as a single character, so the leaf values must be integers from `-40` to `65495`, and the BDD can have at most 99 leaf nodes. Otherwise `bddToMinimalString()` throws an error.
+
 ### minimalStringToSimpleBdd()
 
 Parses the minimal string into an `SimpleBdd`. The `SimpleBdd` is very small and can only resolve values.

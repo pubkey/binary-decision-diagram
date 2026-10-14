@@ -41,7 +41,18 @@ export function getNumberOfChar(char: string): number {
     return charCode - CHAR_CODE_OFFSET;
 }
 
+// the value is stored in a single UTF-16 code unit
+export const MIN_LEAF_VALUE = -CHAR_CODE_OFFSET;
+export const MAX_LEAF_VALUE = 0xFFFF - CHAR_CODE_OFFSET;
+
 export function getCharOfValue(value: number): string {
+    // String.fromCharCode() would silently wrap or truncate these values
+    if (!Number.isInteger(value) || value < MIN_LEAF_VALUE || value > MAX_LEAF_VALUE) {
+        throw new Error(
+            'cannot encode leaf value ' + value + ', ' +
+            'the minimal string only supports integers from ' + MIN_LEAF_VALUE + ' to ' + MAX_LEAF_VALUE
+        );
+    }
     const charCode = CHAR_CODE_OFFSET + value;
     return String.fromCharCode(charCode);
 }

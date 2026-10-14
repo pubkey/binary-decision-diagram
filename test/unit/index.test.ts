@@ -7,3 +7,4 @@ import './simple-bdd.test.js';
 import './optimize-brute-force.test.js';
 import './reduction-both-branches.test.js';
 import './optimize-ordering.test.js';
+import './minimal-string-values.test.js';
