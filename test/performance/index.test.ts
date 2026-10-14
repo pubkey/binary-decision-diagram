@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table.js';
 import { bddToMinimalString, minimalStringToSimpleBdd, resolveWithSimpleBdd } from '../../src/minimal-string/index.js';
 import { optimizeBruteForce } from '../../src/optimize-brute-force.js';
+import { optimizeOrdering } from '../../src/ordering/optimize-ordering.js';
 import { booleanToBooleanString } from '../../src/util.js';
 import {
     randomTable,
@@ -126,6 +127,37 @@ describe('performance.test.ts', () => {
         console.log(`  optimizeBruteForce(depth=${depth}, iterations=${iterations}): ${elapsed.toFixed(2)}ms`);
 
         assert.ok(result.bdd);
+    });
+    it('should run optimizeOrdering', async () => {
+        /**
+         * a structured table: the value depends on a few boolean functions,
+         * so the ordering matters (uniformly random tables have no good ordering)
+         */
+        const depth = 12;
+        const truthTable: Map<string, number> = new Map();
+        for (let row = 0; row < Math.pow(2, depth); row++) {
+            const key = row.toString(2).padStart(depth, '0');
+            const a = key[0] === '1' && key[7] === '1';
+            const b = key[11] === '1' || key[3] === '0';
+            const c = key[1] === key[9];
+            truthTable.set(key, (a ? 1 : 0) + (b ? 2 : 0) + (c ? 4 : 0) + 1);
+        }
+        const natural = createBddFromTruthTable(truthTable);
+        natural.minimize();
+
+        const start = performance.now();
+        const result = await optimizeOrdering({
+            truthTable
+        });
+        const elapsed = performance.now() - start;
+        console.log(
+            `  optimizeOrdering(depth=${depth}): ${elapsed.toFixed(2)}ms, ` +
+            `${natural.countNodes()} -> ${result.nodeCount} nodes, optimal=${result.optimal}, ` +
+            `${result.stats.evaluations} evaluations, ${result.stats.exactExpansions} exact expansions`
+        );
+
+        assert.ok(result.nodeCount < natural.countNodes());
+        assert.ok(result.optimal);
     });
     it('resolve() optimized vs previous implementation', () => {
         const depth = 13;
