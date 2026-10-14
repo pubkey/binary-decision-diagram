@@ -70,4 +70,36 @@ describe('resolve.test.ts', () => {
             }
         }
     });
+    it('should resolve correct values when the bdd is changed after a resolve()', () => {
+        const size = 6;
+        const table = randomUnknownTable(size);
+        const bdd = createBddFromTruthTable(table);
+        const resolvers: ResolverFunctions = getResolverFunctions(size);
+
+        // resolve once so the compiled data is cached
+        for (const [key, value] of table.entries()) {
+            assert.strictEqual(bdd.resolve(resolvers, key), value);
+        }
+
+        bdd.minimize();
+        for (const [key, value] of table.entries()) {
+            assert.strictEqual(bdd.resolve(resolvers, key), value);
+        }
+
+        // changing a leaf value must be reflected without any branch change
+        const leafNode = bdd.getLeafNodes()[0];
+        leafNode.value = 1000;
+        assert.ok(
+            Array.from(table.keys()).some(key => bdd.resolve(resolvers, key) === 1000)
+        );
+
+        // changing a branch must invalidate the cached data
+        const newLeafNode = new LeafNode(size, bdd, 2000, bdd);
+        bdd.branches.setBranch('0', newLeafNode);
+        for (const key of table.keys()) {
+            if (key.startsWith('0')) {
+                assert.strictEqual(bdd.resolve(resolvers, key), 2000);
+            }
+        }
+    });
 });

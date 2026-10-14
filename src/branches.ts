@@ -4,6 +4,13 @@ import { AbstractNode } from './abstract-node.js';
 export const BRANCH_KEYS: BooleanString[] = ['0', '1'];
 
 /**
+ * Is increased on every change of a branch,
+ * so cached data of a BDD (like the compiled resolve data of the RootNode)
+ * can detect that it is outdated.
+ */
+export const BRANCH_CHANGES = { count: 0 };
+
+/**
  * represents the branches of a single node
  */
 export class Branches {
@@ -24,6 +31,7 @@ export class Branches {
 
         // set new branch
         this.data[which] = branchNode;
+        BRANCH_CHANGES.count++;
         branchNode.parents.add(this.node);
     }
 

@@ -1,9 +1,23 @@
 import { AbstractNode } from './abstract-node.js';
-import { Branches } from './branches.js';
+import { Branches, BRANCH_CHANGES } from './branches.js';
 import type {
+    NonLeafNode,
     NonRootNode,
     ResolverFunctions
 } from './types.js';
+
+/**
+ * Flat representation of the BDD that is used by resolve().
+ * Every non-leaf node takes three entries [level, ref0, ref1] in nodes,
+ * the root node starts at index 0.
+ * A ref >= 0 points to the non-leaf node that starts at index ref * 3,
+ * a ref < 0 points to the leaf node leafNodes[~ref].
+ */
+type CompiledBdd = {
+    branchChanges: number;
+    nodes: Int32Array;
+    leafNodes: LeafNode[];
+};
 import {
     lastOfArray
 } from './util.js';
@@ -15,6 +29,8 @@ export class RootNode extends AbstractNode {
 
     public levels: number[] = [];
     public nodesByLevel: Map<number, Set<AbstractNode>> = new Map();
+
+    private compiled?: CompiledBdd;
 
     constructor() {
         super(
@@ -170,17 +186,67 @@ export class RootNode extends AbstractNode {
         }
     }
 
+    /**
+     * Walking over a flat typed array is much faster
+     * than following the branch objects of the nodes.
+     * The compiled data is cached until a branch of any BDD changes.
+     */
+    private compile(): CompiledBdd {
+        const idByNode = new Map<AbstractNode, number>([[this, 0]]);
+        const nonLeafNodes: NonLeafNode[] = [this];
+        const leafIdByNode = new Map<LeafNode, number>();
+        const leafNodes: LeafNode[] = [];
+        const ref = (node: NonRootNode): number => {
+            if (node.type === 'LeafNode') {
+                let leafId = leafIdByNode.get(node as LeafNode);
+                if (leafId === undefined) {
+                    leafId = leafNodes.length;
+                    leafIdByNode.set(node as LeafNode, leafId);
+                    leafNodes.push(node as LeafNode);
+                }
+                return ~leafId;
+            }
+            let id = idByNode.get(node);
+            if (id === undefined) {
+                id = nonLeafNodes.length;
+                idByNode.set(node, id);
+                nonLeafNodes.push(node as InternalNode);
+            }
+            return id;
+        };
+        const entries: number[] = [];
+        for (let i = 0; i < nonLeafNodes.length; i++) {
+            const node = nonLeafNodes[i];
+            entries.push(
+                node.level,
+                ref(node.branches.data['0']),
+                ref(node.branches.data['1'])
+            );
+        }
+        this.compiled = {
+            branchChanges: BRANCH_CHANGES.count,
+            nodes: Int32Array.from(entries),
+            leafNodes
+        };
+        return this.compiled;
+    }
+
     resolve(
         fns: ResolverFunctions,
         booleanFunctionInput: any
     ): number {
-        let currentNode: any = this;
+        let compiled = this.compiled;
+        if (!compiled || compiled.branchChanges !== BRANCH_CHANGES.count) {
+            compiled = this.compile();
+        }
+        const nodes = compiled.nodes;
+        let i = 0;
         while (true) {
-            const booleanResult: boolean = fns[currentNode.level](booleanFunctionInput);
-            currentNode = currentNode.branches.data[booleanResult ? '1' : '0'];
-            if (currentNode.type === 'LeafNode') {
-                return currentNode.value;
+            const ref = nodes[fns[nodes[i]](booleanFunctionInput) ? i + 2 : i + 1];
+            if (ref < 0) {
+                return compiled.leafNodes[~ref].value;
             }
+            i = ref * 3;
         }
     }
 }
