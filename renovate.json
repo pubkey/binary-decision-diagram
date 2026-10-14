@@ -4,5 +4,14 @@
     ],
     "statusCheckVerify": true,
     "automerge": true,
-    "dependencyDashboard": false
+    "dependencyDashboard": false,
+    "packageRules": [
+        {
+            "description": "TypeScript 7 has no JavaScript compiler API, which tslint needs to run",
+            "matchPackageNames": [
+                "typescript"
+            ],
+            "allowedVersions": "<7"
+        }
+    ]
 }

@@ -9,7 +9,7 @@ export function createBddFromTruthTable(
 ): RootNode {
     const root = new RootNode();
 
-    const firstKey = truthTable.keys().next().value;
+    const firstKey = truthTable.keys().next().value as string;
     const keyLength = firstKey.length;
     const mustBeSize = Math.pow(2, keyLength);
     if (truthTable.size !== mustBeSize) {

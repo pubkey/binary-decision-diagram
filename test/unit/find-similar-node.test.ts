@@ -13,11 +13,11 @@ describe('find-similar-node.test.ts', () => {
         const table = allEqualTable();
         const bdd = createBddFromTruthTable(table);
         const nodes = bdd.getNodesOfLevel(1);
-        const first: InternalNode = nodes.values().next().value;
+        const first: InternalNode = nodes.values().next().value as InternalNode;
 
         const bdd2 = createBddFromTruthTable(table);
         const nodes2 = bdd2.getNodesOfLevel(1);
-        const first2: InternalNode = nodes2.values().next().value;
+        const first2: InternalNode = nodes2.values().next().value as InternalNode;
 
         const found = findSimilarNode(
             first,
@@ -29,7 +29,7 @@ describe('find-similar-node.test.ts', () => {
         const table = allEqualTable();
         const bdd = createBddFromTruthTable(table);
         const nodes = bdd.getNodesOfLevel(1);
-        const first: InternalNode = nodes.values().next().value;
+        const first: InternalNode = nodes.values().next().value as InternalNode;
 
         const found = findSimilarNode(
             first,
@@ -42,7 +42,7 @@ describe('find-similar-node.test.ts', () => {
         const table = allEqualTable();
         const bdd = createBddFromTruthTable(table);
         const nodes = bdd.getNodesOfLevel(1);
-        const first: InternalNode = nodes.values().next().value;
+        const first: InternalNode = nodes.values().next().value as InternalNode;
 
         const found = findSimilarNode(
             first,
