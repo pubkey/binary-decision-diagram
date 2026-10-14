@@ -56,7 +56,8 @@ export function decimalToPaddedBinary(
     decimal: number,
     padding: number
 ) {
-    const binary = (decimal >>> 0).toString(2);
+    // >>> 0 would cut off everything above 32 bits, only use it for the two's complement of negative numbers
+    const binary = (decimal < 0 ? decimal >>> 0 : decimal).toString(2);
     const padded = binary.padStart(padding, '0');
     return padded;
 }
@@ -86,10 +87,18 @@ export function maxBinaryWithLength(length: number): string {
 export function getNextStateSet(
     stateSet: string
 ): string {
-    const decimal = binaryToDecimal(stateSet);
-    const increase = decimal + 1;
-    const binary = decimalToPaddedBinary(increase, stateSet.length);
-    return binary;
+    if (stateSet.length <= 52) {
+        // fast path, the number stays exact
+        const decimal = binaryToDecimal(stateSet);
+        return decimalToPaddedBinary(decimal + 1, stateSet.length);
+    }
+    // longer keys would lose precision as a number, so increment the string directly
+    const lastZero = stateSet.lastIndexOf('0');
+    if (lastZero === -1) {
+        // overflow, the result gets one char longer
+        return '1' + '0'.repeat(stateSet.length);
+    }
+    return stateSet.slice(0, lastZero) + '1' + '0'.repeat(stateSet.length - lastZero - 1);
 }
 
 export function firstKeyOfMap(map: Map<string, any>): string {
