@@ -181,41 +181,58 @@ resolveWithSimpleBdd(
 
 ### Packed BDD (for production)
 
+The recommended way to ship an optimized BDD to production is the **packed base64 string**.
+
 `bddToPackedBdd()` stores the whole BDD in a single typed array (`Uint8Array`, `Uint16Array` or `Uint32Array`, the narrowest that fits).
-`resolveWithPackedBdd()` walks directly over that array, so no JavaScript objects have to be created on startup
+Each non-leaf node takes three entries `[level, ref0, ref1]`, so a BDD with less than ~250 nodes only needs 3 bytes per node.
+`resolveWithPackedBdd()` walks directly over that array: no JavaScript objects have to be created on startup
 and resolving is faster than with a `SimpleBdd`.
-Each non-leaf node takes three entries `[level, ref0, ref1]`, a BDD with less than ~250 nodes only needs 3 bytes per node.
+`packedBddToString()` turns the typed array into a short base64 string that you can put into your source code.
+It only contains ASCII characters, so it is smaller than the string of `bddToMinimalString()` and never has to be escaped by bundlers or minifiers.
 The leaf values must be non-negative integers.
 
-```typescript
-const packedBdd = bddToPackedBdd(bdd); // e.g. Uint8Array
+**1. At build time**, create the BDD, pack it and write the string into a source file:
 
-const value = resolveWithPackedBdd(
-    packedBdd,
-    resolvers,
-    input
+```typescript
+import * as fs from 'fs';
+import { bddToPackedBdd, packedBddToString } from 'binary-decision-diagram';
+
+const packedBddString = packedBddToString(bddToPackedBdd(bdd));
+fs.writeFileSync(
+    'src/bdd.generated.ts',
+    `export const PACKED_BDD_STRING = '${packedBddString}';\n`
 );
 ```
 
-To embed it into your JavaScript code, use `packedBddToString()`. It returns a short base64 string that only contains
-ASCII characters, so it is smaller than the minimal string after bundling and never has to be escaped by bundlers or minifiers.
-`packedBddFromString()` decodes it into the typed array in a single loop.
+**2. At runtime**, decode the string once with `packedBddFromString()` and resolve with `resolveWithPackedBdd()`.
+Decoding is a single loop that writes into a typed array, it takes a few microseconds.
+Do it lazily so it only runs when the BDD is used the first time:
 
 ```typescript
-// at build time
-const str = packedBddToString(bddToPackedBdd(bdd));
-fs.writeFileSync('bdd.generated.js', `export const PACKED_BDD = '${str}';`);
+import {
+    packedBddFromString,
+    resolveWithPackedBdd,
+    PackedBdd,
+    ResolverFunctions
+} from 'binary-decision-diagram';
+import { PACKED_BDD_STRING } from './bdd.generated';
 
-// at runtime
-const packedBdd = packedBddFromString(PACKED_BDD);
-resolveWithPackedBdd(packedBdd, resolvers, input);
+let packedBdd: PackedBdd | undefined;
+export function resolveInput(resolvers: ResolverFunctions, input: any): number {
+    if (!packedBdd) {
+        packedBdd = packedBddFromString(PACKED_BDD_STRING);
+    }
+    return resolveWithPackedBdd(packedBdd, resolvers, input);
+}
 ```
 
-Alternatively generate `new Uint8Array([${Array.from(packedBdd).join(',')}])` into the code: then nothing has to be decoded at all,
-but the bundle gets bigger. `resolveWithPackedBdd()` also works with a plain `number[]`.
+Already have a string from `bddToMinimalString()`? Convert it once, without recreating the BDD:
 
-Already have a string from `bddToMinimalString()`? Convert it without recreating the BDD:
-`simpleBddToPackedBdd(minimalStringToSimpleBdd(minimalString))`.
+```typescript
+const packedBddString = packedBddToString(
+    simpleBddToPackedBdd(minimalStringToSimpleBdd(minimalString))
+);
+```
 
 ### optimizeOrdering()
 
