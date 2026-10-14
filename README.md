@@ -306,7 +306,7 @@ const optimizedResult = await optimizeBruteForce({
 
 - **Compiling decision tables**: turn a large truth table of business rules or query conditions into a small BDD that needs only a few boolean checks per lookup.
 - **Small client-side bundles**: precompute and optimize the BDD at build time, ship it as a packed base64 string and resolve it with `resolveWithPackedBdd()`.
-- **Event reduction in databases**: [event-reduce](https://github.com/pubkey/event-reduce) uses this library to decide how a query result changes on a write event, which powers the realtime queries of the [RxDB JavaScript Database]([https://github.com/pubkey/rxdb](https://rxdb.info/)).
+- **Event reduction in databases**: [event-reduce](https://github.com/pubkey/event-reduce) uses this library to decide how a query result changes on a write event, which powers the realtime queries of the [RxDB JavaScript Database](https://rxdb.info/).
 
 ## Further reading
 
