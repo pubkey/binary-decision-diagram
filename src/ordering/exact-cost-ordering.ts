@@ -1,6 +1,6 @@
 import type { DenseTruthTable } from './dense-truth-table.js';
 import { naturalOrdering } from './dense-truth-table.js';
-import { OrderingEvaluator, CostModel, COST_EPSILON } from './ordering-evaluator.js';
+import { OrderingEvaluator, CostModel, costTolerance, costUnit } from './ordering-evaluator.js';
 import { SharedDiagram, StateHeap, DiagramBudgetExceededError, DEFAULT_MAX_DIAGRAM_NODES } from './shared-diagram.js';
 
 export interface ExactCostOrderingOptions {
@@ -55,6 +55,8 @@ interface GroupedRows {
     groupStart: Int32Array;
     /** node id of the cofactor of each group */
     groupFunction: Int32Array;
+    /** total weight of the rows of each group */
+    groupWeight: Float64Array;
 }
 
 /**
@@ -149,7 +151,14 @@ export class ExactCostOrderingSearch {
         const total = this.totalWeight;
         const costs = this.costs;
         const irrelevant = diagram.irrelevantVariables();
-        const tolerance = (value: number) => COST_EPSILON * Math.max(1, Math.abs(value));
+        // path costs are unnormalized (multiplied by the total weight), so is the tolerance unit
+        const unit = costUnit(this.costModel) * total;
+        const tolerance = (value: number) => costTolerance(value, unit);
+        /**
+         * Only costs below this threshold can beat the upper bound.
+         * Without an upper bound every finite cost can.
+         */
+        const pruneThreshold = (bound: number) => isFinite(bound) ? bound - tolerance(bound) : Infinity;
 
         // upper bound, kept unnormalized (multiplied by the total weight) like the path costs
         let upperBound = options.upperBound === undefined ? Infinity : options.upperBound * total;
@@ -157,12 +166,13 @@ export class ExactCostOrderingSearch {
         if (options.upperBoundOrdering) {
             incumbent = this.normalizeOrdering(options.upperBoundOrdering);
             const incumbentCost = new OrderingEvaluator(this.table, this.costModel).evaluate(incumbent).expectedCost * total;
-            if (incumbentCost >= upperBound - tolerance(upperBound)) {
+            if (incumbentCost >= pruneThreshold(upperBound)) {
                 incumbent = null;
             } else {
                 upperBound = incumbentCost;
             }
         }
+        const threshold = pruneThreshold(upperBound);
         const result = (
             solved: boolean,
             ordering: number[] | null,
@@ -185,7 +195,7 @@ export class ExactCostOrderingSearch {
             // constant function: only the root pays, so the cheapest function goes on top
             const ordering = naturalOrdering(this.n).sort((a, b) => (costs[a] - costs[b]) || (a - b));
             const cost = costs[ordering[0]] * total;
-            if (cost >= upperBound - tolerance(upperBound)) {
+            if (cost >= threshold) {
                 return result(true, incumbent, upperBound, 0, 0);
             }
             return result(true, ordering, cost, 0, 0);
@@ -205,7 +215,8 @@ export class ExactCostOrderingSearch {
         const startState: GroupedRows = {
             rows: startRows,
             groupStart: Int32Array.of(0, startRows.length),
-            groupFunction: Int32Array.of(diagram.rootId)
+            groupFunction: Int32Array.of(diagram.rootId),
+            groupWeight: Float64Array.of(total)
         };
         states.set(0, startState);
         bestCost.set(0, 0);
@@ -224,7 +235,7 @@ export class ExactCostOrderingSearch {
             if (currentCost !== bestCost.get(subset) || closed.has(subset)) {
                 continue;
             }
-            if (state.estimate >= upperBound - tolerance(upperBound)) {
+            if (state.estimate >= threshold) {
                 break;
             }
             if (subset === full) {
@@ -254,21 +265,22 @@ export class ExactCostOrderingSearch {
                 }
                 const variable = relevant[c];
                 const nextSubset = subset | bit;
-                const transition = this.transition(grouped, variable);
-                const payingWeight = subset === 0 ? total : transition.payingWeight;
+                const payingWeight = subset === 0 ? total : this.payingWeight(grouped, variable);
                 const nextCost = currentCost + costs[variable] * payingWeight;
                 const knownCost = bestCost.get(nextSubset);
                 if (knownCost !== undefined && knownCost <= nextCost + tolerance(nextCost)) {
                     continue;
                 }
-                if (!states.has(nextSubset)) {
-                    states.set(nextSubset, transition.grouped);
-                    generated++;
-                    storedRows += transition.grouped.rows.length;
-                }
                 const estimate = nextCost + this.estimate(nextSubset);
-                if (estimate >= upperBound - tolerance(upperBound)) {
+                if (estimate >= threshold) {
                     continue;
+                }
+                // the grouping of the rows is only needed when the state can be expanded
+                if (!states.has(nextSubset)) {
+                    const next = this.transition(grouped, variable);
+                    states.set(nextSubset, next);
+                    generated++;
+                    storedRows += next.rows.length;
                 }
                 bestCost.set(nextSubset, nextCost);
                 parentVariable.set(nextSubset, variable);
@@ -314,16 +326,30 @@ export class ExactCostOrderingSearch {
     }
 
     /**
-     * fixes `variable` additionally: returns the weight of the rows that pay for it
-     * and the new grouping of the rows that still have a non-constant cofactor
+     * the weight of the rows that pay for `variable` when it is fixed next
      */
-    private transition(grouped: GroupedRows, variable: number): { payingWeight: number, grouped: GroupedRows } {
+    private payingWeight(grouped: GroupedRows, variable: number): number {
+        const diagram = this.diagram;
+        const bit = 1 << diagram.compactOf[variable];
+        let payingWeight = 0;
+        for (let g = 0; g < grouped.groupFunction.length; g++) {
+            if ((diagram.supportOf(grouped.groupFunction[g]) & bit) !== 0) {
+                payingWeight += grouped.groupWeight[g];
+            }
+        }
+        return payingWeight;
+    }
+
+    /**
+     * fixes `variable` additionally: returns the new grouping of the rows
+     * that still have a non-constant cofactor
+     */
+    private transition(grouped: GroupedRows, variable: number): GroupedRows {
         const diagram = this.diagram;
         const rowBit = 1 << (this.n - 1 - variable);
         const groupCount = grouped.groupFunction.length;
         const functions: number[] = [];
         const rowLists: Int32Array[] = [];
-        let payingWeight = 0;
         for (let g = 0; g < groupCount; g++) {
             const fn = grouped.groupFunction[g];
             const start = grouped.groupStart[g];
@@ -338,7 +364,6 @@ export class ExactCostOrderingSearch {
             const hi = diagram.restrict(fn, variable, 1);
             let loCount = 0;
             for (let i = 0; i < rows.length; i++) {
-                payingWeight += this.activeWeights[rows[i]];
                 if ((this.activeRows[rows[i]] & rowBit) === 0) {
                     loCount++;
                 }
@@ -371,24 +396,30 @@ export class ExactCostOrderingSearch {
         const mergedRows = new Int32Array(totalRows);
         const groupStart: number[] = [0];
         const groupFunction: number[] = [];
+        const groupWeight: number[] = [];
         let position = 0;
+        let weight = 0;
         for (let i = 0; i < order.length; i++) {
             const fn = functions[order[i]];
-            mergedRows.set(rowLists[order[i]], position);
-            position += rowLists[order[i]].length;
+            const list = rowLists[order[i]];
+            mergedRows.set(list, position);
+            position += list.length;
+            for (let r = 0; r < list.length; r++) {
+                weight += this.activeWeights[list[r]];
+            }
             if (i + 1 < order.length && functions[order[i + 1]] === fn) {
                 continue;
             }
             groupFunction.push(fn);
             groupStart.push(position);
+            groupWeight.push(weight);
+            weight = 0;
         }
         return {
-            payingWeight,
-            grouped: {
-                rows: mergedRows,
-                groupStart: Int32Array.from(groupStart),
-                groupFunction: Int32Array.from(groupFunction)
-            }
+            rows: mergedRows,
+            groupStart: Int32Array.from(groupStart),
+            groupFunction: Int32Array.from(groupFunction),
+            groupWeight: Float64Array.from(groupWeight)
         };
     }
 }

@@ -5,7 +5,7 @@ order in which the boolean functions are tested. For the same truth table one
 ordering can need ten times as many nodes as another, and finding the best
 ordering is NP-complete (Bollig and Wegener, 1996).
 
-Until version 3 this library only offered `optimizeBruteForce()`, which shuffles
+Before `optimizeOrdering()` was added, this library only offered `optimizeBruteForce()`, which shuffles
 the ordering randomly, builds the whole decision tree, minimizes it and keeps
 the best result. That works, but it is slow (every iteration builds a tree with
 `2^(n+1)` node objects), it never knows when it is done, and two runs give two
@@ -128,9 +128,11 @@ costs `cost(S, x)`.
   the first time the full set is taken from the queue its cost is optimal.
 - The best ordering of the local search is an upper bound: subsets that cannot
   beat it are never queued. With a tight bound the search visits a small
-  fraction of the `2^n` subsets. For the 17 variable test table it expands
-  about 10 000 of 131 072 subsets in a third of a second and proves that the
-  77 node ordering found by the local search (1.7 s) is optimal.
+  fraction of the `2^n` subsets. For the 17 variable test table the searches
+  on the four candidate completions (see below) expand about 48 000 subsets in
+  total, about 12 000 of the 131 072 per completion, and prove that the 77 node
+  ordering found by the local search is optimal. The whole run takes a few
+  seconds.
 - Budgets make the search give up gracefully, the result then says
   `optimal: false`: a limit on expanded subsets, on stored cofactor sets and
   on the nodes of the shared diagram (`restrict` creates nodes for the
@@ -168,7 +170,7 @@ weight of its block is added to the level. By default every row that is not a
 don't-care row counts the same, `rowWeight` gives rows individual frequencies.
 
 The local search of section 2 works unchanged with the new objective (fewer
-nodes only break ties). The exact search of section 3 works too, because the
+nodes only break ties between equal costs). The exact search of section 3 works too, because the
 expected cost decomposes over the subset lattice the same way: the edge
 `S -> S + {x}` costs `cost(x)` times the weight of the rows whose cofactor with
 respect to `S` depends on `x`. A state of `ExactCostOrderingSearch` keeps the
@@ -177,8 +179,13 @@ constant are dropped), the admissible estimate for the rest of the path is,
 for every function not yet placed, its cost times the weight of the rows that
 are sensitive to it, because those rows pay for it in every ordering.
 
-On the 17 variable test table with sample costs (fourteen cheap functions,
-three expensive ones costing 20, 50 and 100):
+The exact cost search only minimizes the cost. Its result is polished with
+the local search on the same completion, which can only find orderings with
+the same cost and fewer nodes; that tie-break is best effort and not part of
+the proof.
+
+On the 17 variable test table with the sample costs
+`[1, 5, 1, 20, 1, 1, 50, 2, 1, 1, 10, 1, 1, 3, 1, 100, 1]`:
 
 | ordering | nodes | expected cost per resolve() |
 | --- | --- | --- |
@@ -237,8 +244,9 @@ The code in `src/ordering/` is written to be read in that order.
 ## 8. Limitations and further work
 
 - The truth table must be complete (`2^n` rows), so the method is for
-  functions with up to roughly 24 boolean functions. Dynamic reordering inside
-  a BDD package stays the tool for larger functions.
+  functions with up to about 21 to 23 boolean functions (21 take about half a
+  minute and 0.5 GB, 23 about three minutes and 1.7 GB). Dynamic reordering
+  inside a BDD package stays the tool for larger functions.
 - Don't-care rows are resolved greedily (a don't-care branch takes its sibling
   branch, as `removeIrrelevantLeafNodes()` does). Choosing the completion that
   gives the globally smallest BDD is itself NP-hard; the alternation between

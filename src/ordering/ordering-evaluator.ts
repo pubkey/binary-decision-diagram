@@ -1,5 +1,3 @@
-// OrderingEvaluator and OrderingCursor use each other, so one of them is used before its declaration
-// tslint:disable:no-use-before-declare
 import type { DenseTruthTable } from './dense-truth-table.js';
 import { ensureValidOrdering, withTerminalIds } from './dense-truth-table.js';
 
@@ -9,7 +7,10 @@ import { ensureValidOrdering, withTerminalIds } from './dense-truth-table.js';
 export interface CostModel {
     /** functionCosts[v] = cost of calling boolean function v */
     functionCosts: Float64Array;
-    /** rowWeights[row] = how often the row occurs at runtime, relative to the other rows */
+    /**
+     * rowWeights[row] = how often the row occurs at runtime, relative to the other rows.
+     * Must be 0 for don't-care rows, they never occur.
+     */
     rowWeights: Float64Array;
     /** sum of rowWeights */
     totalWeight: number;
@@ -73,6 +74,150 @@ interface DiagramRecord {
 export const COST_EPSILON = 1e-9;
 
 /**
+ * Two costs closer than this are treated as equal. The tolerance is relative
+ * to the larger of the value and the cost of one call of the most expensive
+ * boolean function (`unit`), so it does not depend on the unit the
+ * functionCosts are given in (milliseconds, seconds, ...).
+ */
+export function costTolerance(value: number, unit: number): number {
+    return COST_EPSILON * Math.max(unit, Math.abs(value));
+}
+
+/**
+ * The cost of one call of the most expensive boolean function,
+ * the unit of costTolerance() for expected costs.
+ */
+export function costUnit(costModel: CostModel): number {
+    let unit = 0;
+    for (let v = 0; v < costModel.functionCosts.length; v++) {
+        unit = Math.max(unit, costModel.functionCosts[v]);
+    }
+    return unit;
+}
+
+/**
+ * An ordering together with the intermediate results of its evaluation.
+ *
+ * levelIds[L] holds the ids of the 2^L blocks of level L (levelIds[n] are the
+ * rows of the truth table). Because blocks are indexed by the natural
+ * assignment to the functions above their level, swapping the functions of two
+ * levels keeps all levels below the lower one valid, only the levels from the
+ * lower one up to the root are recomputed.
+ */
+export class OrderingCursor {
+    public readonly ordering: number[];
+    public evaluation: OrderingEvaluation;
+    /** id of the root block, a terminal when the function is constant */
+    public root: number = 0;
+
+    private readonly n: number;
+    private readonly levelIds: Int32Array[] = [];
+    private readonly levelWeights: Float64Array[] | null;
+    private readonly created: number[];
+    private readonly payingWeights: number[];
+
+    constructor(
+        private readonly evaluator: OrderingEvaluator,
+        ordering: ArrayLike<number>,
+        private readonly record: DiagramRecord | null = null
+    ) {
+        this.n = evaluator.variableCount;
+        ensureValidOrdering(ordering, this.n);
+        this.ordering = Array.from(ordering);
+        for (let level = 0; level < this.n; level++) {
+            this.levelIds.push(new Int32Array(1 << level));
+        }
+        this.levelIds.push(evaluator.table.terminalIds);
+        if (evaluator.costModel) {
+            this.levelWeights = [];
+            for (let level = 0; level < this.n; level++) {
+                this.levelWeights.push(new Float64Array(1 << level));
+            }
+            this.levelWeights.push(evaluator.costModel.rowWeights);
+        } else {
+            this.levelWeights = null;
+        }
+        this.created = new Array(this.n).fill(0);
+        this.payingWeights = new Array(this.n).fill(0);
+        this.evaluation = this.recomputeFrom(this.n - 1);
+    }
+
+    /**
+     * Starts over with another ordering.
+     */
+    public reset(ordering: ArrayLike<number>) {
+        ensureValidOrdering(ordering, this.n);
+        for (let i = 0; i < this.n; i++) {
+            this.ordering[i] = ordering[i];
+        }
+        this.evaluation = this.recomputeFrom(this.n - 1);
+    }
+
+    /**
+     * Swaps the boolean functions of two levels and updates the evaluation.
+     */
+    public swap(levelA: number, levelB: number) {
+        if (levelA === levelB) {
+            return;
+        }
+        const tmp = this.ordering[levelA];
+        this.ordering[levelA] = this.ordering[levelB];
+        this.ordering[levelB] = tmp;
+        this.evaluation = this.recomputeFrom(Math.max(levelA, levelB));
+    }
+
+    /**
+     * recomputes the levels top .. 0 (the levels below stay as they are)
+     */
+    private recomputeFrom(top: number): OrderingEvaluation {
+        this.evaluator.evaluations++;
+        const n = this.n;
+        const terminalCount = this.evaluator.terminalCount;
+        // ids used by the levels below `top`
+        let nextId = terminalCount;
+        for (let level = n - 1; level > top; level--) {
+            nextId += this.created[level];
+        }
+        for (let level = top; level >= 0; level--) {
+            const result = this.evaluator.computeLevel(
+                this.ordering,
+                level,
+                this.levelIds[level + 1],
+                this.levelWeights ? this.levelWeights[level + 1] : null,
+                this.levelIds[level],
+                this.levelWeights ? this.levelWeights[level] : null,
+                nextId,
+                this.record
+            );
+            this.created[level] = result.created;
+            this.payingWeights[level] = result.payingWeight;
+            nextId += result.created;
+        }
+        this.root = this.levelIds[0][0];
+
+        const nodesPerLevel = this.created.slice();
+        const internalNodeCount = nextId - terminalCount;
+        const nodeCount = 1 + (internalNodeCount - nodesPerLevel[0]) + this.evaluator.table.leafCount;
+        let expectedCost = 0;
+        const costModel = this.evaluator.costModel;
+        if (costModel) {
+            const costs = costModel.functionCosts;
+            // the root node always calls its boolean function
+            expectedCost = costs[this.ordering[0]];
+            for (let level = 1; level < n; level++) {
+                expectedCost += costs[this.ordering[level]] * this.payingWeights[level] / costModel.totalWeight;
+            }
+        }
+        return {
+            nodesPerLevel,
+            internalNodeCount,
+            nodeCount,
+            expectedCost
+        };
+    }
+}
+
+/**
  * Evaluates variable orderings of a truth table without ever creating
  * BDD node objects.
  *
@@ -112,6 +257,7 @@ export class OrderingEvaluator {
     private readonly hashHi: Int32Array;
     private readonly hashId: Int32Array;
     private scratch: OrderingCursor | null = null;
+    private costUnit: number = 0;
 
     constructor(
         public readonly table: DenseTruthTable,
@@ -125,6 +271,13 @@ export class OrderingEvaluator {
             if (costModel.functionCosts.length !== this.variableCount || costModel.rowWeights.length !== this.rowCount) {
                 throw new Error('cost model does not fit the truth table');
             }
+            for (let row = 0; row < this.rowCount; row++) {
+                if (costModel.rowWeights[row] !== 0 && table.terminalIds[row] === table.dontCareTerminal) {
+                    // a don't-care row is merged into the subtree of its sibling, its weight would be lost
+                    throw new Error('don\'t-care rows must have a row weight of 0');
+                }
+            }
+            this.costUnit = costUnit(costModel);
         }
         // at most rowCount/2 distinct nodes per level -> load factor <= 0.5
         let hashSize = 16;
@@ -170,7 +323,7 @@ export class OrderingEvaluator {
      */
     public compare(a: OrderingEvaluation, b: OrderingEvaluation): number {
         if (this.costModel) {
-            const epsilon = COST_EPSILON * Math.max(1, Math.abs(a.expectedCost), Math.abs(b.expectedCost));
+            const epsilon = costTolerance(Math.max(Math.abs(a.expectedCost), Math.abs(b.expectedCost)), this.costUnit);
             if (a.expectedCost < b.expectedCost - epsilon) {
                 return -1;
             }
@@ -322,127 +475,5 @@ export class OrderingEvaluator {
             ids[block] = id;
         }
         return { created, payingWeight };
-    }
-}
-
-/**
- * An ordering together with the intermediate results of its evaluation.
- *
- * levelIds[L] holds the ids of the 2^L blocks of level L (levelIds[n] are the
- * rows of the truth table). Because blocks are indexed by the natural
- * assignment to the functions above their level, swapping the functions of two
- * levels keeps all levels below the lower one valid, only the levels from the
- * lower one up to the root are recomputed.
- */
-export class OrderingCursor {
-    public readonly ordering: number[];
-    public evaluation: OrderingEvaluation;
-    /** id of the root block, a terminal when the function is constant */
-    public root: number = 0;
-
-    private readonly n: number;
-    private readonly levelIds: Int32Array[] = [];
-    private readonly levelWeights: Float64Array[] | null;
-    private readonly created: number[];
-    private readonly payingWeights: number[];
-
-    constructor(
-        private readonly evaluator: OrderingEvaluator,
-        ordering: ArrayLike<number>,
-        private readonly record: DiagramRecord | null = null
-    ) {
-        this.n = evaluator.variableCount;
-        ensureValidOrdering(ordering, this.n);
-        this.ordering = Array.from(ordering);
-        for (let level = 0; level < this.n; level++) {
-            this.levelIds.push(new Int32Array(1 << level));
-        }
-        this.levelIds.push(evaluator.table.terminalIds);
-        if (evaluator.costModel) {
-            this.levelWeights = [];
-            for (let level = 0; level < this.n; level++) {
-                this.levelWeights.push(new Float64Array(1 << level));
-            }
-            this.levelWeights.push(evaluator.costModel.rowWeights);
-        } else {
-            this.levelWeights = null;
-        }
-        this.created = new Array(this.n).fill(0);
-        this.payingWeights = new Array(this.n).fill(0);
-        this.evaluation = this.recomputeFrom(this.n - 1);
-    }
-
-    /**
-     * Starts over with another ordering.
-     */
-    public reset(ordering: ArrayLike<number>) {
-        ensureValidOrdering(ordering, this.n);
-        for (let i = 0; i < this.n; i++) {
-            this.ordering[i] = ordering[i];
-        }
-        this.evaluation = this.recomputeFrom(this.n - 1);
-    }
-
-    /**
-     * Swaps the boolean functions of two levels and updates the evaluation.
-     */
-    public swap(levelA: number, levelB: number) {
-        if (levelA === levelB) {
-            return;
-        }
-        const tmp = this.ordering[levelA];
-        this.ordering[levelA] = this.ordering[levelB];
-        this.ordering[levelB] = tmp;
-        this.evaluation = this.recomputeFrom(Math.max(levelA, levelB));
-    }
-
-    /**
-     * recomputes the levels top .. 0 (the levels below stay as they are)
-     */
-    private recomputeFrom(top: number): OrderingEvaluation {
-        this.evaluator.evaluations++;
-        const n = this.n;
-        const terminalCount = this.evaluator.terminalCount;
-        // ids used by the levels below `top`
-        let nextId = terminalCount;
-        for (let level = n - 1; level > top; level--) {
-            nextId += this.created[level];
-        }
-        for (let level = top; level >= 0; level--) {
-            const result = this.evaluator.computeLevel(
-                this.ordering,
-                level,
-                this.levelIds[level + 1],
-                this.levelWeights ? this.levelWeights[level + 1] : null,
-                this.levelIds[level],
-                this.levelWeights ? this.levelWeights[level] : null,
-                nextId,
-                this.record
-            );
-            this.created[level] = result.created;
-            this.payingWeights[level] = result.payingWeight;
-            nextId += result.created;
-        }
-        this.root = this.levelIds[0][0];
-
-        const nodesPerLevel = this.created.slice();
-        const internalNodeCount = nextId - terminalCount;
-        const nodeCount = 1 + (internalNodeCount - nodesPerLevel[0]) + this.evaluator.table.leafCount;
-        let expectedCost = 0;
-        const costModel = this.evaluator.costModel;
-        if (costModel) {
-            const costs = costModel.functionCosts;
-            // the root node always calls its boolean function
-            expectedCost = costs[this.ordering[0]];
-            for (let level = 1; level < n; level++) {
-                expectedCost += costs[this.ordering[level]] * this.payingWeights[level] / costModel.totalWeight;
-            }
-        }
-        return {
-            nodesPerLevel,
-            internalNodeCount,
-            nodeCount,
-            expectedCost
-        };
     }
 }

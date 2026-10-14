@@ -331,10 +331,16 @@ describe('optimize-ordering.test.ts', () => {
             assert.strictEqual(result.internalNodeCount, -1);
             const tiny = new ExactOrderingSearch(table, { maxDiagramNodes: 1 }).run();
             assert.strictEqual(tiny.solved, false);
+            // with a known ordering, giving up still returns that ordering
             const small = new ExactOrderingSearch(table, { maxDiagramNodes: 300 }).run({
-                upperBoundOrdering: naturalOrdering(8)
+                upperBoundOrdering: naturalOrdering(8),
+                maxExpansions: 2
             });
-            assert.ok(!small.solved || small.ordering);
+            assert.ok(small.ordering);
+            assert.strictEqual(
+                new OrderingEvaluator(table).evaluate(small.ordering as number[]).internalNodeCount,
+                small.internalNodeCount
+            );
         });
         it('should reject tables with don\'t-care rows', () => {
             const truthTable = randomUnknownTable(4);
@@ -378,7 +384,7 @@ describe('optimize-ordering.test.ts', () => {
                 assert.strictEqual(result.optimal, true);
             }
         });
-        it('should return a completed truth table in the original key order', () => {
+        it('should return a completed truth table with the same keys', () => {
             const truthTable = randomUnknownTable(5);
             truthTable.set('00000', 1);
             const result = findOrdering({ truthTable, dontCareValue: UNKNOWN });
@@ -574,7 +580,7 @@ describe('optimize-ordering.test.ts', () => {
             assert.throws(() => findOrdering({ truthTable, windowSize: 2.5 }));
             assert.throws(() => findOrdering({ truthTable, windowSize: -1 }));
             const noWindow = findOrdering({ truthTable, windowSize: 0 });
-            const bigWindow = findOrdering({ truthTable, windowSize: 10 });
+            const bigWindow = findOrdering({ truthTable, windowSize: 8 });
             assert.ok(noWindow.nodeCount > 0);
             assert.strictEqual(bigWindow.optimal, true);
             const evaluator = new OrderingEvaluator(parseTruthTable(truthTable));
@@ -595,7 +601,10 @@ describe('optimize-ordering.test.ts', () => {
                 afterBddCreation: bdd => bdd.removeIrrelevantLeafNodes(UNKNOWN)
             });
             // the don't-care rows are already resolved, the hook changes nothing
-            assert.strictEqual(noop.bdd.countNodes(), noop.nodeCount);
+            const withoutHook = findOrdering({ truthTable, dontCareValue: UNKNOWN });
+            assert.strictEqual(withoutHook.optimal, true);
+            assert.strictEqual(noop.optimal, true);
+            assert.strictEqual(noop.nodeCount, withoutHook.nodeCount);
             ensureCorrectBdd(noop.bdd);
 
             const changing = await optimizeOrdering({
@@ -605,7 +614,15 @@ describe('optimize-ordering.test.ts', () => {
             });
             ensureCorrectBdd(changing.bdd);
             assert.strictEqual(changing.optimal, false);
-            assert.strictEqual(changing.bdd.countNodes(), changing.nodeCount);
+
+            // a hook that changes the values but not the amount of nodes
+            const relabeled = await optimizeOrdering({
+                truthTable,
+                dontCareValue: UNKNOWN,
+                afterBddCreation: bdd => bdd.getLeafNodes().forEach(leaf => leaf.value = leaf.value + 100)
+            });
+            assert.strictEqual(relabeled.nodeCount, withoutHook.nodeCount);
+            assert.strictEqual(relabeled.optimal, false);
         });
         it('removeIrrelevantLeafNodes() should work when the root points to the same node twice', () => {
             // f = x1 ? 2 : 1, x0 is irrelevant so the root has the x1 node in both branches
@@ -617,6 +634,59 @@ describe('optimize-ordering.test.ts', () => {
             const resolvers = getResolverFunctions(2);
             for (const key of truthTable.keys()) {
                 assert.strictEqual(bdd.resolve(resolvers, key), 1);
+            }
+        });
+    });
+    describe('input validation', () => {
+        it('should reject window sizes that would take too long before doing any work', () => {
+            const truthTable = randomTable(10);
+            const evaluator = new OrderingEvaluator(parseTruthTable(truthTable));
+            assert.throws(() => new LocalOrderingSearch(evaluator, naturalOrdering(10), { windowSize: 9 }), /at most 8/);
+            assert.throws(() => findOrdering({ truthTable, windowSize: 9 }), /at most 8/);
+            assert.ok(findOrdering({ truthTable: randomTable(4), windowSize: 8, exact: false }).nodeCount > 0);
+        });
+        it('should reject invalid budgets and modes', () => {
+            const truthTable = randomTable(4);
+            assert.throws(() => findOrdering({ truthTable, maxExactExpansions: NaN }), /maxExactExpansions/);
+            assert.throws(() => findOrdering({ truthTable, maxExactDiagramNodes: -1 }), /maxExactDiagramNodes/);
+            assert.throws(() => findOrdering({ truthTable, maxExactVariables: 'x' as any }), /maxExactVariables/);
+            assert.throws(() => findOrdering({ truthTable, maxExactNodeCount: 1.5 }), /maxExactNodeCount/);
+            assert.throws(() => findOrdering({ truthTable, exact: 'yes' as any }), /exact/);
+        });
+        it('should reject costs and weights whose sums overflow', () => {
+            const truthTable = randomTable(4);
+            assert.throws(() => findOrdering({ truthTable, functionCosts: [1, 1, 1, 1], rowWeight: () => 1e308 }), /too large/);
+            assert.throws(() => findOrdering({ truthTable, functionCosts: [1e308, 1, 1, 1] }), /too large/);
+        });
+        it('should reject a cost model that gives don\'t-care rows a weight', () => {
+            const truthTable = randomUnknownTable(3);
+            truthTable.set('000', 1);
+            truthTable.set('001', UNKNOWN);
+            const table = parseTruthTable(truthTable, UNKNOWN);
+            const rowWeights = new Float64Array(table.rowCount).fill(1);
+            assert.throws(
+                () => new OrderingEvaluator(table, { functionCosts: new Float64Array([1, 1, 1]), rowWeights, totalWeight: table.rowCount }),
+                /don't-care/
+            );
+        });
+    });
+    describe('progress reporting', () => {
+        it('should report every new best ordering, the last one equals the result', () => {
+            for (let i = 0; i < 30; i++) {
+                const depth = 3 + (i % 5);
+                const truthTable = i % 2 === 0 ? randomUnknownTable(depth) : randomTable(depth);
+                truthTable.set('0'.repeat(depth), 1);
+                const reported: number[] = [];
+                const result = findOrdering({
+                    truthTable,
+                    dontCareValue: i % 2 === 0 ? UNKNOWN : undefined,
+                    onImprovement: progress => reported.push(progress.nodeCount)
+                });
+                assert.ok(reported.length > 0);
+                for (let r = 1; r < reported.length; r++) {
+                    assert.ok(reported[r] < reported[r - 1]);
+                }
+                assert.strictEqual(reported[reported.length - 1], result.nodeCount);
             }
         });
     });
@@ -746,6 +816,24 @@ describe('optimize-ordering.test.ts', () => {
             const second = findOrdering({ truthTable, dontCareValue: UNKNOWN, functionCosts });
             assert.deepStrictEqual(first.ordering, second.ordering);
             assert.strictEqual(first.expectedCost, second.expectedCost);
+        });
+        it('should find the optimum independent of the unit of the costs', () => {
+            for (let i = 0; i < 20; i++) {
+                const depth = 3 + (i % 4);
+                const truthTable = randomTable(depth);
+                // for example seconds instead of milliseconds, with probabilities as weights
+                const functionCosts = randomCosts(depth).map(cost => (cost + 1) * 1e-9);
+                const rowWeight = (key: string) => (1 + (parseInt(key, 2) % 7)) / 1000;
+                const table = parseTruthTable(truthTable);
+                const evaluator = new OrderingEvaluator(table, buildCostModel(table, functionCosts, rowWeight));
+                let optimum = Infinity;
+                allPermutations(naturalOrdering(depth)).forEach(permutation => {
+                    optimum = Math.min(optimum, evaluator.evaluate(permutation).expectedCost);
+                });
+                const result = findOrdering({ truthTable, functionCosts, rowWeight });
+                assert.strictEqual(result.optimal, true);
+                assertClose((result.expectedCost as number) / optimum, 1);
+            }
         });
         it('should validate the cost inputs', () => {
             const truthTable = randomTable(3);

@@ -14,7 +14,8 @@ export type OrderingProgressCallback = (progress: OrderingProgress) => void;
 export interface LocalSearchOptions {
     /**
      * Size of the windows whose variables are permuted exhaustively.
-     * 0 or 1 disables window permutation.
+     * 0 or 1 disables window permutation. The work grows with windowSize!,
+     * so at most MAX_WINDOW_SIZE (8) is allowed.
      * Default: 3
      */
     windowSize?: number;
@@ -109,6 +110,27 @@ function allPermutations(size: number): number[][] {
     return ret;
 }
 
+export const DEFAULT_WINDOW_SIZE = 3;
+export const DEFAULT_MAX_ROUNDS = 50;
+/**
+ * Window permutation tries all w! orderings of every window of w levels,
+ * larger windows take too long.
+ */
+export const MAX_WINDOW_SIZE = 8;
+
+export function ensureNonNegativeInteger(value: number, name: string) {
+    if (!Number.isInteger(value) || value < 0) {
+        throw new Error(name + ' must be a non-negative integer');
+    }
+}
+
+export function ensureWindowSize(windowSize: number) {
+    ensureNonNegativeInteger(windowSize, 'windowSize');
+    if (windowSize > MAX_WINDOW_SIZE) {
+        throw new Error('windowSize must be at most ' + MAX_WINDOW_SIZE + ', window permutation tries windowSize! orderings per window');
+    }
+}
+
 /**
  * Improves an ordering by sifting (moving each variable through all positions
  * and keeping the best one) and exhaustive window permutation until no
@@ -135,16 +157,12 @@ export class LocalOrderingSearch {
     ) {
         this.n = evaluator.variableCount;
         ensureValidOrdering(initialOrdering, this.n);
+        const windowSize = options.windowSize === undefined ? DEFAULT_WINDOW_SIZE : options.windowSize;
+        ensureWindowSize(windowSize);
+        const maxRounds = options.maxRounds === undefined ? DEFAULT_MAX_ROUNDS : options.maxRounds;
+        ensureNonNegativeInteger(maxRounds, 'maxRounds');
         this.cursor = evaluator.cursor(initialOrdering);
         this.best = this.cursor.evaluation;
-        const windowSize = options.windowSize === undefined ? 3 : options.windowSize;
-        if (!Number.isInteger(windowSize) || windowSize < 0) {
-            throw new Error('windowSize must be a non-negative integer');
-        }
-        const maxRounds = options.maxRounds === undefined ? 50 : options.maxRounds;
-        if (!Number.isInteger(maxRounds) || maxRounds < 0) {
-            throw new Error('maxRounds must be a non-negative integer');
-        }
         this.windowSize = Math.min(windowSize, this.n);
         // the identity permutation is the current state, no need to evaluate it again
         this.windowPermutations = this.windowSize >= 2 ?
@@ -160,14 +178,6 @@ export class LocalOrderingSearch {
      */
     get ordering(): number[] {
         return this.cursor.ordering;
-    }
-
-    get nodeCount(): number {
-        return this.best.nodeCount;
-    }
-
-    get expectedCost(): number {
-        return this.best.expectedCost;
     }
 
     public result(): OrderingSearchResult {
@@ -333,8 +343,6 @@ export class LocalOrderingSearch {
         }
     }
 }
-
-export const DEFAULT_SEED_NAMES = ['natural', 'reversed', 'greedy-top-down', 'greedy-bottom-up'];
 
 /**
  * Deterministic start orderings for the local search.

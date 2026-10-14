@@ -135,11 +135,12 @@ export class ExactOrderingSearch {
         }
 
         if (m === 0) {
-            // constant function
+            // constant function: every ordering has 0 internal nodes
+            const constantOrdering = upperBound > 0 ? naturalOrdering(this.n) : incumbent;
             return {
                 solved: true,
-                ordering: upperBound > 0 ? naturalOrdering(this.n) : incumbent,
-                internalNodeCount: 0,
+                ordering: constantOrdering,
+                internalNodeCount: constantOrdering ? 0 : -1,
                 expansions: 0,
                 generated: 0
             };
