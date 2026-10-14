@@ -7,31 +7,24 @@ The string only contains ASCII characters that are safe inside of quotes,
 so bundlers and minifiers never have to escape anything.
 
 - The first char is the byte width of the entries: '1', '2' or '4'
-- The rest is the standard base64 of the entries as little-endian bytes
+- The rest is the standard base64 of the memory of the typed array
 
 The base64 is decoded with the native Uint8Array.fromBase64() where it exists
 and with atob() everywhere else, both are faster than decoding it in JavaScript.
+The typed array then directly uses the decoded memory. This assumes a little-endian
+platform, which are all browsers and nearly all Node.js servers.
 
 */
 
-const IS_LITTLE_ENDIAN = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
-
 export function packedBddToBase64String(packedBdd: PackedBdd): string {
-    const width = packedBdd.BYTES_PER_ELEMENT;
-    const bytes = new Uint8Array(packedBdd.length * width);
-    for (let i = 0; i < packedBdd.length; i++) {
-        const value = packedBdd[i];
-        for (let b = 0; b < width; b++) {
-            bytes[i * width + b] = (value >>> (b * 8)) & 0xFF;
-        }
-    }
+    const bytes = new Uint8Array(packedBdd.buffer, packedBdd.byteOffset, packedBdd.byteLength);
 
     let binary = '';
     const chunkSize = 0x8000;
     for (let i = 0; i < bytes.length; i += chunkSize) {
         binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize) as any);
     }
-    return width + btoa(binary);
+    return packedBdd.BYTES_PER_ELEMENT + btoa(binary);
 }
 
 function base64ToBytes(base64: string): Uint8Array {
@@ -50,20 +43,5 @@ function base64ToBytes(base64: string): Uint8Array {
 export function packedBddFromBase64String(str: string): PackedBdd {
     const width = str.charCodeAt(0) - 48;
     const bytes = base64ToBytes(str.slice(1));
-
-    if (width === 1) {
-        return bytes;
-    }
-    if (IS_LITTLE_ENDIAN && bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength) {
-        // the bytes already are in the right order, use the same memory
-        return width === 2 ? new Uint16Array(bytes.buffer) : new Uint32Array(bytes.buffer);
-    }
-    const ret = width === 2 ? new Uint16Array(bytes.length / 2) : new Uint32Array(bytes.length / 4);
-    for (let i = 0; i < ret.length; i++) {
-        const b = i * width;
-        ret[i] = width === 2 ?
-            bytes[b] | (bytes[b + 1] << 8) :
-            (bytes[b] | (bytes[b + 1] << 8) | (bytes[b + 2] << 16) | (bytes[b + 3] << 24)) >>> 0;
-    }
-    return ret;
+    return width === 1 ? bytes : width === 2 ? new Uint16Array(bytes.buffer) : new Uint32Array(bytes.buffer);
 }
