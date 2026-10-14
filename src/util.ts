@@ -94,7 +94,7 @@ export function getNextStateSet(
 
 export function firstKeyOfMap(map: Map<string, any>): string {
     const iterator1 = map.keys();
-    return iterator1.next().value;
+    return iterator1.next().value as string;
 }
 
 /**

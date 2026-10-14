@@ -84,7 +84,7 @@ export function randomUnknownTable(
 import bigTruthTable from './big-truth-table.js';
 export function getBigTruthTable(): TruthTable {
     const table = objectToMap(bigTruthTable) as TruthTable;
-    const firstKey = table.keys().next().value;
+    const firstKey = table.keys().next().value as string;
     const keyLength = firstKey.length;
 
     fillTruthTable(table, keyLength, UNKNOWN);

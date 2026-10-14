@@ -5,7 +5,7 @@ dist/esm/test/
 dist/cjs/test/
 renovate.json
 tsconfig.json
-tslint.json
+eslint.config.mjs
 
 
 perf.md

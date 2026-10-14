@@ -1,6 +1,5 @@
 {
     "compilerOptions": {
-        "moduleResolution": "node",
         "target": "ES2022",
         "removeComments": false,
         "preserveConstEnums": true,
@@ -10,9 +9,12 @@
         "strict": true,
         "noImplicitReturns": true,
         "noImplicitThis": true,
-        "downlevelIteration": true,
         "esModuleInterop": true,
         "declaration": true,
+        "types": [
+            "node",
+            "mocha"
+        ],
         "outDir": "./dist/cjs",
         "lib": [
             "es7",
