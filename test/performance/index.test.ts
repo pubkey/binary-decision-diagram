@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table.js';
-import { bddToMinimalString, minimalStringToSimpleBdd, resolveWithSimpleBdd } from '../../src/minimal-string/index.js';
+import { bddToPackedBdd, packedBddToString, packedBddFromString, resolveWithPackedBdd } from '../../src/packed/index.js';
 import { optimizeBruteForce } from '../../src/optimize-brute-force.js';
 import { optimizeOrdering } from '../../src/ordering/optimize-ordering.js';
 import { booleanToBooleanString } from '../../src/util.js';
@@ -10,9 +10,7 @@ import {
 } from '../helper/test-util.js';
 import type {
     ResolverFunctions,
-    NonLeafNode,
-    SimpleBdd,
-    SimpleBddLeafNode
+    NonLeafNode
 } from '../../src/types.js';
 import type { AbstractNode } from '../../src/abstract-node.js';
 
@@ -31,28 +29,6 @@ function resolveOld(
         currentNode = (currentNode as NonLeafNode).branches.getBranch(branchKey);
         if (currentNode.isLeafNode()) {
             return currentNode.asLeafNode().value;
-        }
-    }
-}
-
-/**
- * Previous implementation of resolveWithSimpleBdd for comparison.
- */
-function resolveWithSimpleBddOld(
-    simpleBdd: SimpleBdd,
-    fns: ResolverFunctions,
-    input: any
-): number {
-    let currentNode: SimpleBdd | SimpleBddLeafNode = simpleBdd;
-    let currentLevel: number = simpleBdd.l;
-    while (true) {
-        const booleanResult = fns[currentLevel](input);
-        const branchKey = booleanToBooleanString(booleanResult);
-        currentNode = currentNode[branchKey];
-        if (typeof currentNode === 'number' || typeof currentNode === 'string') {
-            return currentNode as any;
-        } else {
-            currentLevel = currentNode.l;
         }
     }
 }
@@ -89,29 +65,29 @@ describe('performance.test.ts', () => {
         const elapsed = performance.now() - start;
         console.log(`  resolve all values(depth=${depth}): ${elapsed.toFixed(2)}ms`);
     });
-    it('should create and resolve with a simple BDD', () => {
+    it('should create and resolve with a packed BDD', () => {
         const depth = 11;
         const truthTable = randomTable(depth);
         const bdd = createBddFromTruthTable(truthTable);
         bdd.minimize();
 
         const startString = performance.now();
-        const minimalString = bddToMinimalString(bdd);
+        const packedBddString = packedBddToString(bddToPackedBdd(bdd));
         const stringTime = performance.now() - startString;
-        console.log(`  bddToMinimalString(depth=${depth}): ${stringTime.toFixed(2)}ms`);
+        console.log(`  packedBddToString(bddToPackedBdd()) (depth=${depth}): ${stringTime.toFixed(2)}ms`);
 
         const startParse = performance.now();
-        const simpleBdd = minimalStringToSimpleBdd(minimalString);
+        const packedBdd = packedBddFromString(packedBddString);
         const parseTime = performance.now() - startParse;
-        console.log(`  minimalStringToSimpleBdd(depth=${depth}): ${parseTime.toFixed(2)}ms`);
+        console.log(`  packedBddFromString(depth=${depth}): ${parseTime.toFixed(2)}ms`);
 
         const resolvers = getResolverFunctions(depth);
         const startResolve = performance.now();
         for (const [key] of truthTable.entries()) {
-            resolveWithSimpleBdd(simpleBdd, resolvers, key);
+            resolveWithPackedBdd(packedBdd, resolvers, key);
         }
         const resolveTime = performance.now() - startResolve;
-        console.log(`  resolveWithSimpleBdd all values(depth=${depth}): ${resolveTime.toFixed(2)}ms`);
+        console.log(`  resolveWithPackedBdd all values(depth=${depth}): ${resolveTime.toFixed(2)}ms`);
     });
     it('should run optimizeBruteForce', async () => {
         const depth = 8;
@@ -205,13 +181,12 @@ describe('performance.test.ts', () => {
             assert.strictEqual(bdd.resolve(resolvers, key), resolveOld(bdd, resolvers, key));
         }
     });
-    it('resolveWithSimpleBdd() optimized vs previous implementation', () => {
+    it('resolveWithPackedBdd() vs RootNode.resolve()', () => {
         const depth = 13;
         const truthTable = randomTable(depth);
         const bdd = createBddFromTruthTable(truthTable);
         bdd.minimize();
-        const minimalString = bddToMinimalString(bdd);
-        const simpleBdd = minimalStringToSimpleBdd(minimalString);
+        const packedBdd = bddToPackedBdd(bdd);
         const resolvers = getResolverFunctions(depth);
         const keys = Array.from(truthTable.keys());
         const rounds = 50;
@@ -219,40 +194,35 @@ describe('performance.test.ts', () => {
         // Warmup both paths thoroughly
         for (let w = 0; w < 5; w++) {
             for (const key of keys) {
-                resolveWithSimpleBdd(simpleBdd, resolvers, key);
-                resolveWithSimpleBddOld(simpleBdd, resolvers, key);
+                bdd.resolve(resolvers, key);
+                resolveWithPackedBdd(packedBdd, resolvers, key);
             }
         }
 
-        let oldTotal = 0;
-        let newTotal = 0;
+        let bddTotal = 0;
+        let packedTotal = 0;
         for (let r = 0; r < rounds; r++) {
-            const startOld = performance.now();
+            const startBdd = performance.now();
             for (const key of keys) {
-                resolveWithSimpleBddOld(simpleBdd, resolvers, key);
+                bdd.resolve(resolvers, key);
             }
-            oldTotal += performance.now() - startOld;
+            bddTotal += performance.now() - startBdd;
 
-            const startNew = performance.now();
+            const startPacked = performance.now();
             for (const key of keys) {
-                resolveWithSimpleBdd(simpleBdd, resolvers, key);
+                resolveWithPackedBdd(packedBdd, resolvers, key);
             }
-            newTotal += performance.now() - startNew;
+            packedTotal += performance.now() - startPacked;
         }
 
-        const oldAvg = oldTotal / rounds;
-        const newAvg = newTotal / rounds;
-        const improvement = ((oldAvg - newAvg) / oldAvg * 100);
-
-        console.log(`  resolveWithSimpleBdd() previous avg (depth=${depth}, ${rounds} rounds): ${oldAvg.toFixed(4)}ms`);
-        console.log(`  resolveWithSimpleBdd() optimized avg (depth=${depth}, ${rounds} rounds): ${newAvg.toFixed(4)}ms`);
-        console.log(`  resolveWithSimpleBdd() improvement: ${improvement.toFixed(1)}%`);
+        console.log(`  RootNode.resolve() avg (depth=${depth}, ${rounds} rounds): ${(bddTotal / rounds).toFixed(4)}ms`);
+        console.log(`  resolveWithPackedBdd() avg (depth=${depth}, ${rounds} rounds): ${(packedTotal / rounds).toFixed(4)}ms`);
 
         // Verify correctness: both must return the same values
         for (const key of keys) {
             assert.strictEqual(
-                resolveWithSimpleBdd(simpleBdd, resolvers, key),
-                resolveWithSimpleBddOld(simpleBdd, resolvers, key)
+                resolveWithPackedBdd(packedBdd, resolvers, key),
+                bdd.resolve(resolvers, key)
             );
         }
     });

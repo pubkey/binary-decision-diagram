@@ -39,7 +39,7 @@ That makes it a good fit to compile large truth tables or decision tables into s
 - Deterministic variable ordering optimization, with proven optimal results for small tables
 - Optimize for the expected runtime cost of the boolean functions, not only for the node count
 - Don't-care values to remove rows that can never occur
-- Serialize a BDD to a minimal string and resolve it with a tiny runtime, ideal for small client-side bundles
+- Pack a BDD into a typed array, ship it as a short base64 string and resolve it without parsing, ideal for small client-side bundles
 - Written in TypeScript, ships ESM and CommonJS builds with type definitions
 
 ## Installation
@@ -53,9 +53,10 @@ npm install binary-decision-diagram --save
 ```typescript
 import {
     createBddFromTruthTable,
-    bddToMinimalString,
-    minimalStringToSimpleBdd,
-    resolveWithSimpleBdd,
+    bddToPackedBdd,
+    packedBddToString,
+    packedBddFromString,
+    resolveWithPackedBdd,
     type ResolverFunctions
 } from 'binary-decision-diagram';
 
@@ -76,10 +77,10 @@ const resolvers: ResolverFunctions<{ a: boolean; b: boolean }> = {
 };
 bdd.resolve(resolvers, { a: true, b: false }); // 2
 
-// store the BDD as a small string and resolve it without the full library
-const minimalString = bddToMinimalString(bdd);
-const simpleBdd = minimalStringToSimpleBdd(minimalString);
-resolveWithSimpleBdd(simpleBdd, resolvers, { a: true, b: false }); // 2
+// store the BDD as a small string and resolve it without creating the nodes again
+const packedBddString = packedBddToString(bddToPackedBdd(bdd));
+const packedBdd = packedBddFromString(packedBddString);
+resolveWithPackedBdd(packedBdd, resolvers, { a: true, b: false }); // 2
 ```
 
 ## API
@@ -150,35 +151,6 @@ const bddValue = bdd.resolve(
 ); // returns a value from the truth table
 ```
 
-### bddToMinimalString()
-
-Returns a string-representation of the BDD which can be used in the client side to have a small javascript-bundle.
-BDDs can be very big so an effective storage format was needed.
-
-```typescript
-const minimalString = bddToMinimalString(bdd)
-```
-
-### minimalStringToSimpleBdd()
-
-Parses the minimal string into an `SimpleBdd`. The `SimpleBdd` is very small and can only resolve values.
-
-```typescript
-const simpleBdd = minimalStringToSimpleBdd(str);
-```
-
-### resolveWithSimpleBdd()
-
-Resolves a value with the `SimpleBdd` and the `ResolverFunctions`.
-
-```typescript
-resolveWithSimpleBdd(
-    simpleBdd,
-    resolvers,
-    key
-);
-```
-
 ### Packed BDD (for production)
 
 The recommended way to ship an optimized BDD to production is the **packed base64 string**.
@@ -186,9 +158,9 @@ The recommended way to ship an optimized BDD to production is the **packed base6
 `bddToPackedBdd()` stores the whole BDD in a single typed array (`Uint8Array`, `Uint16Array` or `Uint32Array`, the narrowest that fits).
 Each non-leaf node takes three entries `[level, ref0, ref1]`, so a BDD with less than ~250 nodes only needs 3 bytes per node.
 `resolveWithPackedBdd()` walks directly over that array: no JavaScript objects have to be created on startup
-and resolving is faster than with a `SimpleBdd`.
+and resolving is fast.
 `packedBddToString()` turns the typed array into a short base64 string that you can put into your source code.
-It only contains ASCII characters, so it is smaller than the string of `bddToMinimalString()` and never has to be escaped by bundlers or minifiers.
+It only contains ASCII characters, so it never has to be escaped by bundlers or minifiers.
 The leaf values must be non-negative integers.
 
 **1. At build time**, create the BDD, pack it and write the string into a source file:
@@ -226,13 +198,12 @@ export function resolveInput(resolvers: ResolverFunctions, input: any): number {
 }
 ```
 
-Already have a string from `bddToMinimalString()`? Convert it once, without recreating the BDD:
-
-```typescript
-const packedBddString = packedBddToString(
-    simpleBddToPackedBdd(minimalStringToSimpleBdd(minimalString))
-);
-```
+**Migrating from version 3**: the minimal string and the `SimpleBdd` were removed.
+Replace `bddToMinimalString()` with `packedBddToString(bddToPackedBdd(bdd))`,
+`minimalStringToSimpleBdd()` with `packedBddFromString()`,
+`resolveWithSimpleBdd()` with `resolveWithPackedBdd()`
+and `bdd.toSimpleBdd()` with `bddToPackedBdd(bdd)`.
+An old minimal string cannot be read anymore, create the BDD again (for example with `createBddWithOrdering()`) and pack it.
 
 ### optimizeOrdering()
 
@@ -268,7 +239,7 @@ const result = await optimizeOrdering({
     onImprovement: ({ nodeCount, phase }) => console.log(phase + ': ' + nodeCount + ' nodes')
 });
 
-result.bdd;        // the minimized BDD, ready for bddToMinimalString()
+result.bdd;        // the minimized BDD, ready for bddToPackedBdd()
 result.ordering;   // ordering[level] = index of the boolean function tested on that level
 result.nodeCount;  // result.bdd.countNodes()
 result.optimal;    // true when it is proven that no ordering gives fewer nodes for result.truthTable
@@ -323,8 +294,8 @@ const optimizedResult = await optimizeBruteForce({
     },
     // hook that is triggered whenever a better bdd was found (optional)
     onBetterBdd: (res: OptimisationResult) => {
-        const bddMinimalString = bddToMinimalString(res.bdd);
-        console.log('new string: ' + bddMinimalString);
+        const packedBddString = packedBddToString(bddToPackedBdd(res.bdd));
+        console.log('new string: ' + packedBddString);
     },
     // (optional) start with this BDD to optimize. If not set, will create an own one.
     initialBdd: myBdd
@@ -334,7 +305,7 @@ const optimizedResult = await optimizeBruteForce({
 ## Use cases
 
 - **Compiling decision tables**: turn a large truth table of business rules or query conditions into a small BDD that needs only a few boolean checks per lookup.
-- **Small client-side bundles**: precompute and optimize the BDD at build time, ship it as a minimal string and resolve it with `resolveWithSimpleBdd()`.
+- **Small client-side bundles**: precompute and optimize the BDD at build time, ship it as a packed base64 string and resolve it with `resolveWithPackedBdd()`.
 - **Event reduction in databases**: [event-reduce](https://github.com/pubkey/event-reduce) uses this library to decide how a query result changes on a write event, which powers the realtime queries of [RxDB](https://github.com/pubkey/rxdb).
 
 ## Further reading

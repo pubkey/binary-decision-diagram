@@ -1,4 +1,3 @@
-export * from './minimal-string/index.js';
 export * from './abstract-node.js';
 export * from './branches.js';
 export * from './create-bdd-from-truth-table.js';

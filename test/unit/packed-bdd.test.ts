@@ -8,10 +8,7 @@ import {
 } from '../helper/test-util.js';
 import {
     createBddFromTruthTable,
-    bddToMinimalString,
-    minimalStringToSimpleBdd,
     bddToPackedBdd,
-    simpleBddToPackedBdd,
     resolveWithPackedBdd,
     packedBddToString,
     packedBddFromString,
@@ -93,15 +90,6 @@ describe('packed-bdd.test.ts', () => {
             assert.throws(() => bddToPackedBdd(bdd));
         });
     });
-    describe('.simpleBddToPackedBdd()', () => {
-        it('should give the same as bddToPackedBdd() when converting a minimal string', () => {
-            const table = bigTable;
-            const bdd = bigBdd;
-            const fromString = simpleBddToPackedBdd(minimalStringToSimpleBdd(bddToMinimalString(bdd)));
-            assert.strictEqual(fromString.length, bddToPackedBdd(bdd).length);
-            assertResolvesTable(fromString, table);
-        });
-    });
     describe('.packedBddToString() / .packedBddFromString()', () => {
         it('should round-trip all array widths and lengths', () => {
             const arrays: PackedBdd[] = [];
@@ -124,7 +112,6 @@ describe('packed-bdd.test.ts', () => {
             const table = bigTable;
             const bdd = bigBdd;
             const str = packedBddToString(bddToPackedBdd(bdd));
-            assert.ok(str.length < bddToMinimalString(bdd).length * 1.5);
             assertResolvesTable(packedBddFromString(str), table);
         });
         it('should throw on invalid strings', () => {

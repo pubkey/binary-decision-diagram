@@ -1,6 +1,6 @@
 import type { RootNode } from '../root-node.js';
 import type { AbstractNode } from '../abstract-node.js';
-import type { NonLeafNode, ResolverFunctions, SimpleBdd, SimpleBddLeafNode } from '../types.js';
+import type { NonLeafNode, ResolverFunctions } from '../types.js';
 
 /*
 
@@ -30,47 +30,15 @@ export type PackedBdd = Uint8Array | Uint16Array | Uint32Array;
  * The leaf values must be non-negative integers.
  */
 export function bddToPackedBdd(bdd: RootNode): PackedBdd {
-    return pack<AbstractNode>(
-        bdd,
-        node => node.isLeafNode(),
-        node => node.asLeafNode().value,
-        node => node.level,
-        (node, branch) => (node as NonLeafNode).branches.getBranch(branch === 0 ? '0' : '1')
-    );
-}
+    const branchesOf = (node: AbstractNode) => (node as NonLeafNode).branches;
 
-/**
- * Creates a PackedBdd from a SimpleBdd,
- * for example to convert a string from bddToMinimalString()
- * via minimalStringToSimpleBdd() without having to recreate the BDD.
- * Nodes are deduplicated by object identity, so use the result of minimalStringToSimpleBdd()
- * and not the one of bddToSimpleBdd() which repeats shared sub-graphs.
- */
-export function simpleBddToPackedBdd(simpleBdd: SimpleBdd): PackedBdd {
-    return pack<SimpleBdd | SimpleBddLeafNode>(
-        simpleBdd,
-        node => typeof node !== 'object',
-        node => node as SimpleBddLeafNode,
-        node => (node as SimpleBdd).l,
-        (node, branch) => (node as SimpleBdd)[branch]
-    );
-}
-
-function pack<T>(
-    root: T,
-    isLeaf: (node: T) => boolean,
-    leafValue: (node: T) => number,
-    level: (node: T) => number,
-    branch: (node: T, branch: 0 | 1) => T
-): PackedBdd {
     // breadth first, branch 0 before branch 1, so the output is deterministic
-    const nonLeafNodes: T[] = [root];
-    const idByNode = new Map<T, number>([[root, 0]]);
+    const nonLeafNodes: AbstractNode[] = [bdd];
+    const idByNode = new Map<AbstractNode, number>([[bdd, 0]]);
     for (let i = 0; i < nonLeafNodes.length; i++) {
-        const node = nonLeafNodes[i];
-        for (const b of [0, 1] as const) {
-            const child = branch(node, b);
-            if (!isLeaf(child) && !idByNode.has(child)) {
+        const branches = branchesOf(nonLeafNodes[i]);
+        for (const child of [branches.getBranch('0'), branches.getBranch('1')]) {
+            if (!child.isLeafNode() && !idByNode.has(child)) {
                 idByNode.set(child, nonLeafNodes.length);
                 nonLeafNodes.push(child);
             }
@@ -78,22 +46,27 @@ function pack<T>(
     }
 
     const n = nonLeafNodes.length;
-    const entries: number[] = [];
-    const ref = (node: T): number => {
-        if (!isLeaf(node)) {
+    const ref = (node: AbstractNode): number => {
+        if (!node.isLeafNode()) {
             return idByNode.get(node) as number;
         }
-        const value = leafValue(node);
+        const value = node.asLeafNode().value;
         if (!Number.isInteger(value) || value < 0) {
             throw new Error('PackedBdd only supports non-negative integer leaf values, got ' + value);
         }
         return n + value;
     };
+    const entries: number[] = [];
+    let max = 0;
     nonLeafNodes.forEach(node => {
-        entries.push(level(node), ref(branch(node, 0)), ref(branch(node, 1)));
+        const branches = branchesOf(node);
+        const nodeEntries = [node.level, ref(branches.getBranch('0')), ref(branches.getBranch('1'))];
+        nodeEntries.forEach(entry => {
+            entries.push(entry);
+            max = Math.max(max, entry);
+        });
     });
 
-    const max = Math.max(...entries);
     if (max <= 0xFF) {
         return Uint8Array.from(entries);
     } else if (max <= 0xFFFF) {
