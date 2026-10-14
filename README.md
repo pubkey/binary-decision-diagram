@@ -1,21 +1,88 @@
-# binary decision diagram
+# Binary Decision Diagram (BDD) library for JavaScript and TypeScript
 
-A library to **create**, **minimize** and **optimize** binary decision diagrams in JavaScript.
+[![npm version](https://img.shields.io/npm/v/binary-decision-diagram.svg)](https://www.npmjs.com/package/binary-decision-diagram)
+[![npm downloads](https://img.shields.io/npm/dm/binary-decision-diagram.svg)](https://www.npmjs.com/package/binary-decision-diagram)
+[![license](https://img.shields.io/npm/l/binary-decision-diagram.svg)](./LICENSE)
 
+**binary-decision-diagram** is a JavaScript and TypeScript library to **create**, **minimize** and **optimize** binary decision diagrams (BDDs).
+Build a reduced ordered binary decision diagram (ROBDD) or multi-terminal BDD (MTBDD) from a truth table,
+find a good variable ordering, serialize it to a tiny string and resolve values with it in the browser or in Node.js.
 
+## Table of contents
 
-A binary decision diagram is a data structure that represents a set of boolean function in an efficient way. To learn more about it, follow these links:
+- [What is a binary decision diagram?](#what-is-a-binary-decision-diagram)
+- [Features](#features)
+- [Installation](#installation)
+- [Quick start](#quick-start)
+- [API](#api)
+- [Use cases](#use-cases)
+- [Further reading](#further-reading)
 
-- [Introduction on BDDs](https://web.archive.org/web/20110304135553/http://configit.com/fileadmin/Configit/Documents/bdd-eap.pdf)
-- [Presentation on BDDs](https://de.slideshare.net/RajeshYadav49/reduced-ordered-binary-decision-diagram-devi)
-- [Implementation of ROBDD](https://pdfs.semanticscholar.org/788d/ed39ca36300753bcb20c43762972b00f9b80.pdf)
+## What is a binary decision diagram?
 
+A binary decision diagram (BDD) is a data structure that represents boolean functions in a compact way.
+It is a directed acyclic graph where every internal node tests one boolean variable and every leaf holds a result value.
+By merging identical subgraphs and removing redundant tests (the *reduction* and *elimination* rules),
+a decision tree with `2^n` leaves often shrinks to a few nodes. This is called a reduced ordered binary decision diagram (ROBDD).
 
-### Installation
+The size of a BDD depends heavily on the **variable ordering**, the order in which the boolean functions are tested.
+Finding a good ordering is the main way to make a BDD small, and this library ships a fast deterministic optimizer for it.
+
+This library builds multi-terminal BDDs: the leaves can hold any number, not only `true` and `false`.
+That makes it a good fit to compile large truth tables or decision tables into small, fast lookup structures.
+
+## Features
+
+- Create a BDD from a truth table (`Map<string, number>`)
+- Minimize it with the reduction and elimination rules (ROBDD)
+- Multi-terminal leaves: map every input combination to a number, not only to a boolean
+- Deterministic variable ordering optimization, with proven optimal results for small tables
+- Optimize for the expected runtime cost of the boolean functions, not only for the node count
+- Don't-care values to remove rows that can never occur
+- Serialize a BDD to a minimal string and resolve it with a tiny runtime, ideal for small client-side bundles
+- Written in TypeScript, ships ESM and CommonJS builds with type definitions
+
+## Installation
 
 ```bash
 npm install binary-decision-diagram --save
 ```
+
+## Quick start
+
+```typescript
+import {
+    createBddFromTruthTable,
+    bddToMinimalString,
+    minimalStringToSimpleBdd,
+    resolveWithSimpleBdd,
+    type ResolverFunctions
+} from 'binary-decision-diagram';
+
+// every key is one combination of the boolean functions, the value is the result
+const truthTable = new Map<string, number>();
+truthTable.set('00', 1);
+truthTable.set('01', 3);
+truthTable.set('10', 2);
+truthTable.set('11', 1);
+
+const bdd = createBddFromTruthTable(truthTable);
+bdd.minimize();
+
+// one boolean function per character of the truth table keys
+const resolvers: ResolverFunctions<{ a: boolean; b: boolean }> = {
+    0: (input) => input.a,
+    1: (input) => input.b
+};
+bdd.resolve(resolvers, { a: true, b: false }); // 2
+
+// store the BDD as a small string and resolve it without the full library
+const minimalString = bddToMinimalString(bdd);
+const simpleBdd = minimalStringToSimpleBdd(minimalString);
+resolveWithSimpleBdd(simpleBdd, resolvers, { a: true, b: false }); // 2
+```
+
+## API
 
 ### createBddFromTruthTable()
 
@@ -94,13 +161,13 @@ const minimalString = bddToMinimalString(bdd)
 
 ### minimalStringToSimpleBdd()
 
-Parses the minimal string into an `SimpleBdd`. The `SimpleBdd` very small and only can resolve stuff.
+Parses the minimal string into an `SimpleBdd`. The `SimpleBdd` is very small and can only resolve values.
 
 ```typescript
 const simpleBdd = minimalStringToSimpleBdd(str);
 ```
 
-### resolveWithMinimalBdd()
+### resolveWithSimpleBdd()
 
 Resolves a value with the `SimpleBdd` and the `ResolverFunctions`.
 
@@ -208,3 +275,17 @@ const optimizedResult = await optimizeBruteForce({
     initialBdd: myBdd
 });
 ```
+
+## Use cases
+
+- **Compiling decision tables**: turn a large truth table of business rules or query conditions into a small BDD that needs only a few boolean checks per lookup.
+- **Small client-side bundles**: precompute and optimize the BDD at build time, ship it as a minimal string and resolve it with `resolveWithSimpleBdd()`.
+- **Event reduction in databases**: [event-reduce](https://github.com/pubkey/event-reduce) uses this library to decide how a query result changes on a write event, which powers the realtime queries of [RxDB](https://github.com/pubkey/rxdb).
+
+## Further reading
+
+- [How the variable ordering optimizer works](./docs/variable-ordering.md)
+- [Introduction on BDDs](https://web.archive.org/web/20110304135553/http://configit.com/fileadmin/Configit/Documents/bdd-eap.pdf)
+- [Presentation on BDDs](https://de.slideshare.net/RajeshYadav49/reduced-ordered-binary-decision-diagram-devi)
+- [Implementation of ROBDD](https://pdfs.semanticscholar.org/788d/ed39ca36300753bcb20c43762972b00f9b80.pdf)
+- [Binary decision diagram on Wikipedia](https://en.wikipedia.org/wiki/Binary_decision_diagram)
