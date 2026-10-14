@@ -6,5 +6,6 @@ import './resolve.test.js';
 import './packed-bdd.test.js';
 import './optimize-brute-force.test.js';
 import './reduction-both-branches.test.js';
+import './remove-all-irrelevant.test.js';
 import './optimize-ordering.test.js';
 import './util.test.js';

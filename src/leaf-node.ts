@@ -26,6 +26,11 @@ export class LeafNode extends AbstractNode {
         }
 
         const parents = this.parents.getAll();
+        if (parents.some(parent => parent.branches.areBranchesStrictEqual())) {
+            // the root node points to this leaf with both branches, so all rows lead here
+            // and there is no other branch that could replace the leaf
+            return false;
+        }
         parents.forEach(parent => {
             const branchKey = parent.branches.getKeyOfNode(this);
             const otherBranch = parent.branches.getBranch(oppositeBoolean(branchKey));
