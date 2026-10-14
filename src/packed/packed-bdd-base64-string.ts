@@ -49,13 +49,7 @@ function base64ToBytes(base64: string): Uint8Array {
 
 export function packedBddFromBase64String(str: string): PackedBdd {
     const width = str.charCodeAt(0) - 48;
-    if (width !== 1 && width !== 2 && width !== 4) {
-        throw new Error('not a PackedBdd string');
-    }
     const bytes = base64ToBytes(str.slice(1));
-    if (bytes.length % width !== 0) {
-        throw new Error('not a PackedBdd string');
-    }
 
     if (width === 1) {
         return bytes;

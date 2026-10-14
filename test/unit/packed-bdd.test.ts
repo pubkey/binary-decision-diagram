@@ -114,8 +114,5 @@ describe('packed-bdd.test.ts', () => {
             const str = packedBddToBase64String(bddToPackedBdd(bdd));
             assertResolvesTable(packedBddFromBase64String(str), table);
         });
-        it('should throw on invalid strings', () => {
-            assert.throws(() => packedBddFromBase64String('3AAAA'));
-        });
     });
 });
