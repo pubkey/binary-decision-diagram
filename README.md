@@ -179,6 +179,44 @@ resolveWithSimpleBdd(
 );
 ```
 
+### Packed BDD (for production)
+
+`bddToPackedBdd()` stores the whole BDD in a single typed array (`Uint8Array`, `Uint16Array` or `Uint32Array`, the narrowest that fits).
+`resolveWithPackedBdd()` walks directly over that array, so no JavaScript objects have to be created on startup
+and resolving is faster than with a `SimpleBdd`.
+Each non-leaf node takes three entries `[level, ref0, ref1]`, a BDD with less than ~250 nodes only needs 3 bytes per node.
+The leaf values must be non-negative integers.
+
+```typescript
+const packedBdd = bddToPackedBdd(bdd); // e.g. Uint8Array
+
+const value = resolveWithPackedBdd(
+    packedBdd,
+    resolvers,
+    input
+);
+```
+
+To embed it into your JavaScript code, use `packedBddToString()`. It returns a short base64 string that only contains
+ASCII characters, so it is smaller than the minimal string after bundling and never has to be escaped by bundlers or minifiers.
+`packedBddFromString()` decodes it into the typed array in a single loop.
+
+```typescript
+// at build time
+const str = packedBddToString(bddToPackedBdd(bdd));
+fs.writeFileSync('bdd.generated.js', `export const PACKED_BDD = '${str}';`);
+
+// at runtime
+const packedBdd = packedBddFromString(PACKED_BDD);
+resolveWithPackedBdd(packedBdd, resolvers, input);
+```
+
+Alternatively generate `new Uint8Array([${Array.from(packedBdd).join(',')}])` into the code: then nothing has to be decoded at all,
+but the bundle gets bigger. `resolveWithPackedBdd()` also works with a plain `number[]`.
+
+Already have a string from `bddToMinimalString()`? Convert it without recreating the BDD:
+`simpleBddToPackedBdd(minimalStringToSimpleBdd(minimalString))`.
+
 ### optimizeOrdering()
 
 Deterministically finds a variable ordering (the order in which the boolean functions are tested) that gives a small BDD and returns the minimized BDD for it.
