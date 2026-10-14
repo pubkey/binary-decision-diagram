@@ -10,8 +10,8 @@ import {
     createBddFromTruthTable,
     bddToPackedBdd,
     resolveWithPackedBdd,
-    packedBddToString,
-    packedBddFromString,
+    packedBddToBase64String,
+    packedBddFromBase64String,
     PackedBdd,
     TruthTable,
     RootNode
@@ -90,7 +90,7 @@ describe('packed-bdd.test.ts', () => {
             assert.throws(() => bddToPackedBdd(bdd));
         });
     });
-    describe('.packedBddToString() / .packedBddFromString()', () => {
+    describe('.packedBddToBase64String() / .packedBddFromBase64String()', () => {
         it('should round-trip all array widths and lengths', () => {
             const arrays: PackedBdd[] = [];
             for (let length = 3; length <= 12; length += 3) {
@@ -101,9 +101,9 @@ describe('packed-bdd.test.ts', () => {
             }
             arrays.push(Uint32Array.from([0xFFFFFFFF, 0, 0x80000000]));
             arrays.forEach(arr => {
-                const str = packedBddToString(arr);
-                assert.ok(/^[124][A-Za-z0-9+/]*$/.test(str), str);
-                const back = packedBddFromString(str);
+                const str = packedBddToBase64String(arr);
+                assert.ok(/^[124][A-Za-z0-9+/]*={0,2}$/.test(str), str);
+                const back = packedBddFromBase64String(str);
                 assert.strictEqual(back.constructor, arr.constructor);
                 assert.deepStrictEqual(Array.from(back), Array.from(arr));
             });
@@ -111,11 +111,11 @@ describe('packed-bdd.test.ts', () => {
         it('should resolve correctly after the round-trip', () => {
             const table = bigTable;
             const bdd = bigBdd;
-            const str = packedBddToString(bddToPackedBdd(bdd));
-            assertResolvesTable(packedBddFromString(str), table);
+            const str = packedBddToBase64String(bddToPackedBdd(bdd));
+            assertResolvesTable(packedBddFromBase64String(str), table);
         });
         it('should throw on invalid strings', () => {
-            assert.throws(() => packedBddFromString('3AAAA'));
+            assert.throws(() => packedBddFromBase64String('3AAAA'));
         });
     });
 });

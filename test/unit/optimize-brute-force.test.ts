@@ -4,7 +4,15 @@ import {
     exampleTruthTable, allEqualTable, randomTable, UNKNOWN, randomUnknownTable, getResolverFunctions
 } from '../helper/test-util.js';
 import { ensureCorrectBdd } from '../../src/ensure-correct-bdd.js';
-import { InternalNode, NonRootNode, LeafNode, bddToPackedBdd, packedBddToString, packedBddFromString, resolveWithPackedBdd } from '../../src/index.js';
+import {
+    InternalNode,
+    NonRootNode,
+    LeafNode,
+    bddToPackedBdd,
+    packedBddToBase64String,
+    packedBddFromBase64String,
+    resolveWithPackedBdd
+} from '../../src/index.js';
 import { optimizeBruteForce, CompareResultsFunction } from '../../src/optimize-brute-force.js';
 
 describe('optimize-brute-force.test.ts', () => {
@@ -63,7 +71,7 @@ describe('optimize-brute-force.test.ts', () => {
         }
 
         const packedBdd = bddToPackedBdd(resortedBdd);
-        const decodedPackedBdd = packedBddFromString(packedBddToString(packedBdd));
+        const decodedPackedBdd = packedBddFromBase64String(packedBddToBase64String(packedBdd));
 
         assert.deepStrictEqual(
             packedBdd,

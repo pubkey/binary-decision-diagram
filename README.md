@@ -54,8 +54,8 @@ npm install binary-decision-diagram --save
 import {
     createBddFromTruthTable,
     bddToPackedBdd,
-    packedBddToString,
-    packedBddFromString,
+    packedBddToBase64String,
+    packedBddFromBase64String,
     resolveWithPackedBdd,
     type ResolverFunctions
 } from 'binary-decision-diagram';
@@ -78,8 +78,8 @@ const resolvers: ResolverFunctions<{ a: boolean; b: boolean }> = {
 bdd.resolve(resolvers, { a: true, b: false }); // 2
 
 // store the BDD as a small string and resolve it without creating the nodes again
-const packedBddString = packedBddToString(bddToPackedBdd(bdd));
-const packedBdd = packedBddFromString(packedBddString);
+const packedBddString = packedBddToBase64String(bddToPackedBdd(bdd));
+const packedBdd = packedBddFromBase64String(packedBddString);
 resolveWithPackedBdd(packedBdd, resolvers, { a: true, b: false }); // 2
 ```
 
@@ -159,7 +159,7 @@ The recommended way to ship an optimized BDD to production is the **packed base6
 Each non-leaf node takes three entries `[level, ref0, ref1]`, so a BDD with less than ~250 nodes only needs 3 bytes per node.
 `resolveWithPackedBdd()` walks directly over that array: no JavaScript objects have to be created on startup
 and resolving is fast.
-`packedBddToString()` turns the typed array into a short base64 string that you can put into your source code.
+`packedBddToBase64String()` turns the typed array into a short base64 string that you can put into your source code.
 It only contains ASCII characters, so it never has to be escaped by bundlers or minifiers.
 The leaf values must be non-negative integers.
 
@@ -167,22 +167,22 @@ The leaf values must be non-negative integers.
 
 ```typescript
 import * as fs from 'fs';
-import { bddToPackedBdd, packedBddToString } from 'binary-decision-diagram';
+import { bddToPackedBdd, packedBddToBase64String } from 'binary-decision-diagram';
 
-const packedBddString = packedBddToString(bddToPackedBdd(bdd));
+const packedBddString = packedBddToBase64String(bddToPackedBdd(bdd));
 fs.writeFileSync(
     'src/bdd.generated.ts',
     `export const PACKED_BDD_STRING = '${packedBddString}';\n`
 );
 ```
 
-**2. At runtime**, decode the string once with `packedBddFromString()` and resolve with `resolveWithPackedBdd()`.
-Decoding is a single loop that writes into a typed array, it takes a few microseconds.
+**2. At runtime**, decode the string once with `packedBddFromBase64String()` and resolve with `resolveWithPackedBdd()`.
+Decoding uses the native `Uint8Array.fromBase64()` (or `atob()` where it does not exist yet) and takes a few microseconds.
 Do it lazily so it only runs when the BDD is used the first time:
 
 ```typescript
 import {
-    packedBddFromString,
+    packedBddFromBase64String,
     resolveWithPackedBdd,
     PackedBdd,
     ResolverFunctions
@@ -192,15 +192,15 @@ import { PACKED_BDD_STRING } from './bdd.generated';
 let packedBdd: PackedBdd | undefined;
 export function resolveInput(resolvers: ResolverFunctions, input: any): number {
     if (!packedBdd) {
-        packedBdd = packedBddFromString(PACKED_BDD_STRING);
+        packedBdd = packedBddFromBase64String(PACKED_BDD_STRING);
     }
     return resolveWithPackedBdd(packedBdd, resolvers, input);
 }
 ```
 
 **Migrating from version 3**: the minimal string and the `SimpleBdd` were removed.
-Replace `bddToMinimalString()` with `packedBddToString(bddToPackedBdd(bdd))`,
-`minimalStringToSimpleBdd()` with `packedBddFromString()`,
+Replace `bddToMinimalString()` with `packedBddToBase64String(bddToPackedBdd(bdd))`,
+`minimalStringToSimpleBdd()` with `packedBddFromBase64String()`,
 `resolveWithSimpleBdd()` with `resolveWithPackedBdd()`
 and `bdd.toSimpleBdd()` with `bddToPackedBdd(bdd)`.
 An old minimal string cannot be read anymore, create the BDD again (for example with `createBddWithOrdering()`) and pack it.
@@ -294,7 +294,7 @@ const optimizedResult = await optimizeBruteForce({
     },
     // hook that is triggered whenever a better bdd was found (optional)
     onBetterBdd: (res: OptimisationResult) => {
-        const packedBddString = packedBddToString(bddToPackedBdd(res.bdd));
+        const packedBddString = packedBddToBase64String(bddToPackedBdd(res.bdd));
         console.log('new string: ' + packedBddString);
     },
     // (optional) start with this BDD to optimize. If not set, will create an own one.

@@ -1,6 +1,6 @@
 import * as assert from 'assert';
 import { createBddFromTruthTable } from '../../src/create-bdd-from-truth-table.js';
-import { bddToPackedBdd, packedBddToString, packedBddFromString, resolveWithPackedBdd } from '../../src/packed/index.js';
+import { bddToPackedBdd, packedBddToBase64String, packedBddFromBase64String, resolveWithPackedBdd } from '../../src/packed/index.js';
 import { optimizeBruteForce } from '../../src/optimize-brute-force.js';
 import { optimizeOrdering } from '../../src/ordering/optimize-ordering.js';
 import { booleanToBooleanString } from '../../src/util.js';
@@ -72,14 +72,14 @@ describe('performance.test.ts', () => {
         bdd.minimize();
 
         const startString = performance.now();
-        const packedBddString = packedBddToString(bddToPackedBdd(bdd));
+        const packedBddString = packedBddToBase64String(bddToPackedBdd(bdd));
         const stringTime = performance.now() - startString;
-        console.log(`  packedBddToString(bddToPackedBdd()) (depth=${depth}): ${stringTime.toFixed(2)}ms`);
+        console.log(`  packedBddToBase64String(bddToPackedBdd()) (depth=${depth}): ${stringTime.toFixed(2)}ms`);
 
         const startParse = performance.now();
-        const packedBdd = packedBddFromString(packedBddString);
+        const packedBdd = packedBddFromBase64String(packedBddString);
         const parseTime = performance.now() - startParse;
-        console.log(`  packedBddFromString(depth=${depth}): ${parseTime.toFixed(2)}ms`);
+        console.log(`  packedBddFromBase64String(depth=${depth}): ${parseTime.toFixed(2)}ms`);
 
         const resolvers = getResolverFunctions(depth);
         const startResolve = performance.now();
