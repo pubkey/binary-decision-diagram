@@ -100,9 +100,7 @@ describe('optimize-brute-force.test.ts', () => {
         const minimizedBdd = createBddFromTruthTable(truthTable);
         minimizedBdd.minimize();
 
-        const compareResults: CompareResultsFunction = (a, b) => {
-            return Promise.resolve(a);
-        };
+        const compareResults: CompareResultsFunction = (a, b) => Promise.resolve(a);
 
         const optimizedResult = await optimizeBruteForce({
             truthTable,

@@ -7,7 +7,7 @@
     "dependencyDashboard": false,
     "packageRules": [
         {
-            "description": "TypeScript 7 has no JavaScript compiler API, which tslint needs to run",
+            "description": "typescript-eslint does not support TypeScript 7 yet (peer range <6.1.0)",
             "matchPackageNames": [
                 "typescript"
             ],

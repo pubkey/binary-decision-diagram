@@ -191,13 +191,11 @@ export function changeKeyOrder(
 ): string {
     const chars = oldKey
         .split('')
-        .map((char, indexBefore) => {
-            return {
-                char,
-                indexBefore,
-                indexAfter: mappingBeforeToAfter[indexBefore]
-            };
-        })
+        .map((char, indexBefore) => ({
+            char,
+            indexBefore,
+            indexAfter: mappingBeforeToAfter[indexBefore]
+        }))
         .sort((a, b) => a.indexAfter - b.indexAfter)
         .map(charObj => charObj.char)
         .join('');
