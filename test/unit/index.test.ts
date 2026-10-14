@@ -3,7 +3,7 @@ import './find-similar-node.test.js';
 import './minimize.test.js';
 import './minimize-level-zero.test.js';
 import './resolve.test.js';
-import './simple-bdd.test.js';
+import './packed-bdd.test.js';
 import './optimize-brute-force.test.js';
 import './reduction-both-branches.test.js';
 import './optimize-ordering.test.js';

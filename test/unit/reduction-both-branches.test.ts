@@ -5,9 +5,8 @@ import { ensureCorrectBdd } from '../../src/ensure-correct-bdd.js';
 import {
     TruthTable,
     optimizeBruteForce,
-    bddToMinimalString,
-    minimalStringToSimpleBdd,
-    resolveWithSimpleBdd
+    bddToPackedBdd,
+    resolveWithPackedBdd
 } from '../../src/index.js';
 
 /**
@@ -30,13 +29,12 @@ describe('reduction-both-branches.test.ts', () => {
         bdd.minimize();
         ensureCorrectBdd(bdd);
         assert.strictEqual(bdd.countNodes(), 2);
-        const minimalString = bddToMinimalString(bdd);
-        assert.ok(!minimalString.includes('undefined'));
-        const simpleBdd = minimalStringToSimpleBdd(minimalString);
+        // packing walks every branch and throws on a missing one
+        const packedBdd = bddToPackedBdd(bdd);
         const resolvers = getResolverFunctions(2);
         for (const key of truthTable.keys()) {
             assert.strictEqual(bdd.resolve(resolvers, key), 1);
-            assert.strictEqual(resolveWithSimpleBdd(simpleBdd, resolvers, key), 1);
+            assert.strictEqual(resolveWithPackedBdd(packedBdd, resolvers, key), 1);
         }
     });
     it('should work through the afterBddCreation hook of optimizeBruteForce()', async () => {
@@ -52,8 +50,8 @@ describe('reduction-both-branches.test.ts', () => {
             afterBddCreation: bdd => bdd.removeIrrelevantLeafNodes(UNKNOWN)
         });
         ensureCorrectBdd(result.bdd);
-        const minimalString = bddToMinimalString(result.bdd);
-        assert.ok(!minimalString.includes('undefined'));
+        // packing walks every branch and throws on a missing one
+        bddToPackedBdd(result.bdd);
         assert.strictEqual(result.bdd.resolve(getResolverFunctions(2), '01'), 1);
     });
     it('should produce correct bdds for random tables with irrelevant values', async () => {
@@ -67,14 +65,13 @@ describe('reduction-both-branches.test.ts', () => {
                 afterBddCreation: bdd => bdd.removeIrrelevantLeafNodes(UNKNOWN)
             });
             ensureCorrectBdd(result.bdd);
-            const minimalString = bddToMinimalString(result.bdd);
-            assert.ok(!minimalString.includes('undefined'));
-            const simpleBdd = minimalStringToSimpleBdd(minimalString);
+            // packing walks every branch and throws on a missing one
+            const packedBdd = bddToPackedBdd(result.bdd);
             const resolvers = getResolverFunctions(depth);
             for (const [key, value] of truthTable.entries()) {
                 if (value !== UNKNOWN) {
                     assert.strictEqual(result.bdd.resolve(resolvers, key), value);
-                    assert.strictEqual(resolveWithSimpleBdd(simpleBdd, resolvers, key), value);
+                    assert.strictEqual(resolveWithPackedBdd(packedBdd, resolvers, key), value);
                 }
             }
         }

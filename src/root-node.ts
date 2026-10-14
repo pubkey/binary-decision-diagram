@@ -2,15 +2,13 @@ import { AbstractNode } from './abstract-node.js';
 import { Branches } from './branches.js';
 import type {
     NonRootNode,
-    ResolverFunctions,
-    SimpleBdd
+    ResolverFunctions
 } from './types.js';
 import {
     lastOfArray
 } from './util.js';
 import { InternalNode } from './internal-node.js';
 import { LeafNode } from './leaf-node.js';
-import { bddToSimpleBdd } from './minimal-string/index.js';
 
 export class RootNode extends AbstractNode {
     public branches: Branches = new Branches(this);
@@ -184,9 +182,5 @@ export class RootNode extends AbstractNode {
                 return currentNode.value;
             }
         }
-    }
-
-    public toSimpleBdd(): SimpleBdd {
-        return bddToSimpleBdd(this);
     }
 }

@@ -22,9 +22,8 @@ import {
     buildCostModel,
     LocalOrderingSearch,
     naturalOrdering,
-    bddToMinimalString,
-    minimalStringToSimpleBdd,
-    resolveWithSimpleBdd,
+    bddToPackedBdd,
+    resolveWithPackedBdd,
     changeKeyOrder,
     lastOfArray,
     TruthTable,
@@ -105,13 +104,17 @@ function assertResolvesLikeTable(
 ) {
     const depth = (truthTable.keys().next().value as string).length;
     const resolvers = getResolverFunctions(depth);
-    const simpleBdd = minimalStringToSimpleBdd(bddToMinimalString(bdd));
+    // a PackedBdd only supports non-negative integer values
+    const packedBdd = Array.from(truthTable.values()).every(v => Number.isInteger(v) && v >= 0) ?
+        bddToPackedBdd(bdd) : undefined;
     for (const [key, value] of truthTable.entries()) {
         if (value === dontCareValue) {
             continue;
         }
         assert.strictEqual(bdd.resolve(resolvers, key), value);
-        assert.strictEqual(resolveWithSimpleBdd(simpleBdd, resolvers, key), value);
+        if (packedBdd) {
+            assert.strictEqual(resolveWithPackedBdd(packedBdd, resolvers, key), value);
+        }
     }
 }
 
@@ -539,7 +542,7 @@ describe('optimize-ordering.test.ts', () => {
                 const result = await optimizeOrdering({ truthTable, dontCareValue: UNKNOWN });
                 const rebuilt = createBddWithOrdering(result.truthTable, result.ordering);
                 assert.strictEqual(rebuilt.countNodes(), result.nodeCount);
-                assert.strictEqual(bddToMinimalString(rebuilt), bddToMinimalString(result.bdd));
+                assert.deepStrictEqual(bddToPackedBdd(rebuilt), bddToPackedBdd(result.bdd));
             }
         });
         it('should not claim optimality when the exact search gives up', () => {

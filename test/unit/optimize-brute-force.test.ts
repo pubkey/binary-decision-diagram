@@ -4,9 +4,16 @@ import {
     exampleTruthTable, allEqualTable, randomTable, UNKNOWN, randomUnknownTable, getResolverFunctions
 } from '../helper/test-util.js';
 import { ensureCorrectBdd } from '../../src/ensure-correct-bdd.js';
-import { InternalNode, NonRootNode, LeafNode, bddToMinimalString, minimalStringToSimpleBdd, resolveWithSimpleBdd } from '../../src/index.js';
+import {
+    InternalNode,
+    NonRootNode,
+    LeafNode,
+    bddToPackedBdd,
+    packedBddToBase64String,
+    packedBddFromBase64String,
+    resolveWithPackedBdd
+} from '../../src/index.js';
 import { optimizeBruteForce, CompareResultsFunction } from '../../src/optimize-brute-force.js';
-import { bddToSimpleBdd } from '../../src/minimal-string/bdd-to-simple-bdd.js';
 
 describe('optimize-brute-force.test.ts', () => {
     it('should return the same values when the order changed', async () => {
@@ -46,7 +53,7 @@ describe('optimize-brute-force.test.ts', () => {
             }
         }
     });
-    it('resorted bdds should work with simple bdd', async () => {
+    it('resorted bdds should work with packed bdd', async () => {
         const depth = 7;
         const truthTable = randomTable(depth);
         const bdd = createBddFromTruthTable(truthTable);
@@ -63,13 +70,12 @@ describe('optimize-brute-force.test.ts', () => {
             resortedBdd = optimizedResult.bdd;
         }
 
-        const simpleBdd = bddToSimpleBdd(resortedBdd);
-        const minimalString = bddToMinimalString(resortedBdd);
-        const simpleBddFromMinimalString = minimalStringToSimpleBdd(minimalString);
+        const packedBdd = bddToPackedBdd(resortedBdd);
+        const decodedPackedBdd = packedBddFromBase64String(packedBddToBase64String(packedBdd));
 
         assert.deepStrictEqual(
-            simpleBdd,
-            simpleBddFromMinimalString
+            packedBdd,
+            decodedPackedBdd
         );
 
         const resolvers = getResolverFunctions(depth, false);
@@ -77,16 +83,16 @@ describe('optimize-brute-force.test.ts', () => {
             const bddValue = bdd.resolve(resolvers, key);
             const minimizedBddValue = minimizedBdd.resolve(resolvers, key);
             const resortedBddValue = resortedBdd.resolve(resolvers, key);
-            const simpleBddValue = resolveWithSimpleBdd(simpleBdd, resolvers, key);
+            const packedBddValue = resolveWithPackedBdd(decodedPackedBdd, resolvers, key);
 
             if (
-                bddValue !== simpleBddValue ||
+                bddValue !== packedBddValue ||
                 bddValue !== resortedBddValue ||
                 bddValue !== value ||
                 bddValue !== minimizedBddValue
             ) {
                 console.log('value: ' + value);
-                console.log('simpleBddValue: ' + simpleBddValue);
+                console.log('packedBddValue: ' + packedBddValue);
                 console.log('minimizedBdd: ' + minimizedBddValue);
                 console.log('resortedBddValue: ' + resortedBddValue);
                 console.log('bddValue: ' + bddValue);

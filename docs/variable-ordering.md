@@ -203,7 +203,7 @@ The best ordering is turned into the library's node structure directly from the
 reduced diagram (`createBddWithOrdering()`), so the unreduced tree with
 `2^(n+1)` nodes is never built and no `minimize()` call is needed. The result
 has the same shape as the BDDs of `optimizeBruteForce()`: the level of a node
-is the index of the boolean function it tests, and `bddToMinimalString()`
+is the index of the boolean function it tests, and `bddToPackedBdd()`
 works as before.
 
 ## 6. Results
