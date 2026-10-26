@@ -1,6 +1,7 @@
 {
     "compilerOptions": {
         "target": "ES5",
+        "module": "ES2015",
         "ignoreDeprecations": "6.0",
         "downlevelIteration": true,
         "removeComments": false,

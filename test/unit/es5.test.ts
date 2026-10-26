@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
 import { parse } from 'acorn';
 import { full } from 'acorn-walk';
 import { DiagramBudgetExceededError } from '../../src/ordering/shared-diagram.js';
@@ -67,6 +68,36 @@ describe('es5.test.ts', () => {
                 }
             });
         });
+    });
+    it('the packed BDD modules should contain no compiler helpers', () => {
+        /**
+         * They are bundled at runtime (for example by event-reduce-js).
+         * Top-level helpers like __values() cannot be tree-shaken by bundlers.
+         */
+        const files = jsFiles(path.join(esmDir, 'packed'));
+        assert.ok(files.length > 0);
+        files.forEach(file => {
+            const helpers = fs.readFileSync(file, 'utf8').match(/var __[a-zA-Z]+ =/g);
+            assert.strictEqual(helpers, null, path.relative(esmDir, file) + ' contains ' + helpers);
+        });
+    });
+    it('the ES module build should be importable as an ES module', () => {
+        /**
+         * Compiled with the ES5 target and no module option, TypeScript
+         * outputs CommonJS, which fails in the "type": "module" folder.
+         */
+        const output = execFileSync(process.execPath, [
+            '--input-type=module',
+            '-e',
+            'const m = await import(' + JSON.stringify('file://' + path.join(esmDir, 'index.js')) + ');' +
+            'console.log(typeof m.resolveWithPackedBdd + typeof m.packedBddFromBase64String);'
+        ]).toString().trim();
+        assert.strictEqual(output, 'functionfunction');
+    });
+    it('the CommonJS build should be requireable', () => {
+        const m = require(path.join(cjsDir, 'index.es5.js'));
+        assert.strictEqual(typeof m.resolveWithPackedBdd, 'function');
+        assert.strictEqual(typeof m.packedBddFromBase64String, 'function');
     });
     it('instanceof should work on the errors of the library', () => {
         const error = new DiagramBudgetExceededError();
