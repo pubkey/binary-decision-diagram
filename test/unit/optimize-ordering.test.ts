@@ -53,7 +53,7 @@ function bddViaLibrary(
         mappingBeforeToAfter[indexBefore] = indexAfter;
     });
     const newTable: TruthTable = new Map();
-    for (const [key, value] of truthTable.entries()) {
+    for (const [key, value] of Array.from(truthTable.entries())) {
         newTable.set(changeKeyOrder(key, mapping), value);
     }
     const bdd = createBddFromTruthTable(newTable);
@@ -107,7 +107,7 @@ function assertResolvesLikeTable(
     // a PackedBdd only supports non-negative integer values
     const packedBdd = Array.from(truthTable.values()).every(v => Number.isInteger(v) && v >= 0) ?
         bddToPackedBdd(bdd) : undefined;
-    for (const [key, value] of truthTable.entries()) {
+    for (const [key, value] of Array.from(truthTable.entries())) {
         if (value === dontCareValue) {
             continue;
         }
@@ -140,7 +140,7 @@ function measureExpectedCost(
     }
     let total = 0;
     let weightSum = 0;
-    for (const [key, value] of truthTable.entries()) {
+    for (const [key, value] of Array.from(truthTable.entries())) {
         if (value === dontCareValue) {
             continue;
         }
@@ -392,7 +392,7 @@ describe('optimize-ordering.test.ts', () => {
             truthTable.set('00000', 1);
             const result = findOrdering({ truthTable, dontCareValue: UNKNOWN });
             assert.strictEqual(result.truthTable.size, truthTable.size);
-            for (const [key, value] of truthTable.entries()) {
+            for (const [key, value] of Array.from(truthTable.entries())) {
                 assert.ok(result.truthTable.has(key));
                 if (value !== UNKNOWN) {
                     assert.strictEqual(result.truthTable.get(key), value);
@@ -466,7 +466,7 @@ describe('optimize-ordering.test.ts', () => {
             const truthTable = randomTable(5);
             const result = await optimizeOrdering({ truthTable });
             const resolvers = getResolverFunctions(5);
-            for (const [key, value] of truthTable.entries()) {
+            for (const [key, value] of Array.from(truthTable.entries())) {
                 assert.strictEqual(result.bdd.resolve(resolvers, key), value);
             }
         });
@@ -517,7 +517,7 @@ describe('optimize-ordering.test.ts', () => {
             ensureCorrectBdd(zeroIsDontCare.bdd);
             assertResolvesLikeTable(zeroIsDontCare.bdd, truthTable, 0);
             assert.ok(zeroIsDontCare.nodeCount <= plain.nodeCount);
-            for (const value of zeroIsDontCare.truthTable.values()) {
+            for (const value of Array.from(zeroIsDontCare.truthTable.values())) {
                 assert.notStrictEqual(value, 0);
             }
 
@@ -635,7 +635,7 @@ describe('optimize-ordering.test.ts', () => {
             bdd.removeIrrelevantLeafNodes(2);
             ensureCorrectBdd(bdd);
             const resolvers = getResolverFunctions(2);
-            for (const key of truthTable.keys()) {
+            for (const key of Array.from(truthTable.keys())) {
                 assert.strictEqual(bdd.resolve(resolvers, key), 1);
             }
         });

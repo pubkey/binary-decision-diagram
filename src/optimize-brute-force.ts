@@ -167,7 +167,7 @@ export function shuffleBooleanOrdering(
     });
 
     const newTable: TruthTable = new Map();
-    for (const [key, value] of truthTable.entries()) {
+    truthTable.forEach((value, key) => {
         const newKey = changeKeyOrder(
             key,
             mapping
@@ -176,7 +176,7 @@ export function shuffleBooleanOrdering(
             newKey,
             value
         );
-    }
+    });
 
     return {
         newTable,

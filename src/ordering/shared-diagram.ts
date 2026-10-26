@@ -9,6 +9,10 @@ import { IntPairMap } from './int-pair-map.js';
 export class DiagramBudgetExceededError extends Error {
     constructor() {
         super('the exact search would need more diagram nodes than allowed');
+        // Compiled to ES5, a subclass of Error gets an instance of Error,
+        // so instanceof DiagramBudgetExceededError would be false without this.
+        Object.setPrototypeOf(this, DiagramBudgetExceededError.prototype);
+        this.name = 'DiagramBudgetExceededError';
     }
 }
 

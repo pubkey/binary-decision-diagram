@@ -51,7 +51,7 @@ export function parseTruthTable(
     const terminalIds = new Int32Array(rowCount).fill(-1);
     const terminalValues: number[] = [];
     const idByValue: Map<number, number> = new Map();
-    for (const [key, value] of truthTable) {
+    truthTable.forEach((value, key) => {
         if (key.length !== variableCount || !/^[01]+$/.test(key)) {
             throw new Error('invalid truth table key ' + key);
         }
@@ -66,7 +66,7 @@ export function parseTruthTable(
             idByValue.set(value, id);
         }
         terminalIds[row] = id;
-    }
+    });
 
     let dontCareTerminal = -1;
     if (dontCareValue !== undefined) {

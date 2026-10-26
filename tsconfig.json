@@ -1,6 +1,7 @@
 {
     "compilerOptions": {
-        "target": "ES2022",
+        "target": "ES5",
+        "ignoreDeprecations": "6.0",
         "removeComments": false,
         "preserveConstEnums": true,
         "sourceMap": true,

@@ -13,7 +13,7 @@ describe('resolve.test.ts', () => {
         const bdd = createBddFromTruthTable(table);
         const resolvers: ResolverFunctions = getResolverFunctions(size);
 
-        for (const [key, value] of table.entries()) {
+        for (const [key, value] of Array.from(table.entries())) {
             const bddValue = bdd.resolve(resolvers, key);
             assert.strictEqual(value, bddValue);
         }
@@ -25,7 +25,7 @@ describe('resolve.test.ts', () => {
         const resolvers: ResolverFunctions = getResolverFunctions(size);
 
         bdd.minimize();
-        for (const [key, value] of table.entries()) {
+        for (const [key, value] of Array.from(table.entries())) {
             const bddValue = bdd.resolve(resolvers, key);
             assert.strictEqual(value, bddValue);
         }
@@ -37,7 +37,7 @@ describe('resolve.test.ts', () => {
         const resolvers: ResolverFunctions = getResolverFunctions(size);
 
         bdd.minimize();
-        for (const [key, value] of table.entries()) {
+        for (const [key, value] of Array.from(table.entries())) {
             const bddValue = bdd.resolve(resolvers, key);
             assert.strictEqual(value, bddValue);
         }
@@ -52,7 +52,7 @@ describe('resolve.test.ts', () => {
         const packedBdd = bddToPackedBdd(minimizedBdd);
         const resolvers = getResolverFunctions(depth, false);
 
-        for (const [key, value] of truthTable.entries()) {
+        for (const [key, value] of Array.from(truthTable.entries())) {
             const bddValue = bdd.resolve(resolvers, key);
             const minimizedBddValue = minimizedBdd.resolve(resolvers, key);
             const packedBddValue = resolveWithPackedBdd(packedBdd, resolvers, key);

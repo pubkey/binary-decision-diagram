@@ -14,7 +14,7 @@ import { RootNode, TruthTable } from '../../src/index.js';
  */
 function createBddWithFunction1OnTop(truthTable: TruthTable): RootNode {
     const swapped: TruthTable = new Map();
-    for (const [key, value] of truthTable.entries()) {
+    for (const [key, value] of Array.from(truthTable.entries())) {
         swapped.set(key[1] + key[0], value);
     }
     const bdd = createBddFromTruthTable(swapped);
@@ -50,7 +50,7 @@ describe('minimize-level-zero.test.ts', () => {
         // root, one node for boolean function 0, two leaves
         assert.strictEqual(bdd.countNodes(), 4);
         const resolvers = getResolverFunctions(2);
-        for (const [key, value] of truthTable.entries()) {
+        for (const [key, value] of Array.from(truthTable.entries())) {
             assert.strictEqual(bdd.resolve(resolvers, key), value);
         }
     });

@@ -32,7 +32,7 @@ describe('reduction-both-branches.test.ts', () => {
         // packing walks every branch and throws on a missing one
         const packedBdd = bddToPackedBdd(bdd);
         const resolvers = getResolverFunctions(2);
-        for (const key of truthTable.keys()) {
+        for (const key of Array.from(truthTable.keys())) {
             assert.strictEqual(bdd.resolve(resolvers, key), 1);
             assert.strictEqual(resolveWithPackedBdd(packedBdd, resolvers, key), 1);
         }
@@ -68,7 +68,7 @@ describe('reduction-both-branches.test.ts', () => {
             // packing walks every branch and throws on a missing one
             const packedBdd = bddToPackedBdd(result.bdd);
             const resolvers = getResolverFunctions(depth);
-            for (const [key, value] of truthTable.entries()) {
+            for (const [key, value] of Array.from(truthTable.entries())) {
                 if (value !== UNKNOWN) {
                     assert.strictEqual(result.bdd.resolve(resolvers, key), value);
                     assert.strictEqual(resolveWithPackedBdd(packedBdd, resolvers, key), value);

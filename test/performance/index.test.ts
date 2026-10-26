@@ -59,7 +59,7 @@ describe('performance.test.ts', () => {
         const resolvers = getResolverFunctions(depth);
 
         const start = performance.now();
-        for (const [key] of truthTable.entries()) {
+        for (const [key] of Array.from(truthTable.entries())) {
             bdd.resolve(resolvers, key);
         }
         const elapsed = performance.now() - start;
@@ -83,7 +83,7 @@ describe('performance.test.ts', () => {
 
         const resolvers = getResolverFunctions(depth);
         const startResolve = performance.now();
-        for (const [key] of truthTable.entries()) {
+        for (const [key] of Array.from(truthTable.entries())) {
             resolveWithPackedBdd(packedBdd, resolvers, key);
         }
         const resolveTime = performance.now() - startResolve;
