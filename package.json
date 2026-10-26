@@ -1,6 +1,6 @@
 {
   "name": "binary-decision-diagram",
-  "version": "5.0.0",
+  "version": "6.0.0",
   "description": "A library to create, minimize and optimize binary decision diagrams",
   "keywords": [
     "binary decision diagram",
