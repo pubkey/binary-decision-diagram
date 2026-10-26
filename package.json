@@ -53,6 +53,8 @@
     "@stylistic/eslint-plugin": "5.10.0",
     "@types/mocha": "10.0.10",
     "@types/node": "26.6.5",
+    "acorn": "8.19.0",
+    "acorn-walk": "8.3.5",
     "assert": "2.1.0",
     "async-test-util": "2.5.0",
     "eslint": "10.13.0",

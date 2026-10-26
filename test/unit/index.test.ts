@@ -8,3 +8,4 @@ import './optimize-brute-force.test.js';
 import './reduction-both-branches.test.js';
 import './optimize-ordering.test.js';
 import './util.test.js';
+import './es5.test.js';
