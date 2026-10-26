@@ -1,6 +1,7 @@
 import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
 import { parse } from 'acorn';
 import { full } from 'acorn-walk';
 import { DiagramBudgetExceededError } from '../../src/ordering/shared-diagram.js';
@@ -67,6 +68,24 @@ describe('es5.test.ts', () => {
                 }
             });
         });
+    });
+    it('the ES module build should be importable as an ES module', () => {
+        /**
+         * Compiled with the ES5 target and no module option, TypeScript
+         * outputs CommonJS, which fails in the "type": "module" folder.
+         */
+        const output = execFileSync(process.execPath, [
+            '--input-type=module',
+            '-e',
+            'const m = await import(' + JSON.stringify('file://' + path.join(esmDir, 'index.js')) + ');' +
+            'console.log(typeof m.resolveWithPackedBdd + typeof m.packedBddFromBase64String);'
+        ]).toString().trim();
+        assert.strictEqual(output, 'functionfunction');
+    });
+    it('the CommonJS build should be requireable', () => {
+        const m = require(path.join(cjsDir, 'index.es5.js'));
+        assert.strictEqual(typeof m.resolveWithPackedBdd, 'function');
+        assert.strictEqual(typeof m.packedBddFromBase64String, 'function');
     });
     it('instanceof should work on the errors of the library', () => {
         const error = new DiagramBudgetExceededError();
