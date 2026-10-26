@@ -39,9 +39,9 @@ export class Parents {
 
     toString() {
         const ret: string[] = [];
-        this.parents.forEach(parent => {
+        for (const parent of this.parents) {
             ret.push(parent.id);
-        });
+        }
         return ret.join(', ');
     }
 

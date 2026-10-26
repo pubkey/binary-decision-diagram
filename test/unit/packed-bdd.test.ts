@@ -20,7 +20,7 @@ import {
 function assertResolvesTable(packedBdd: ArrayLike<number>, table: TruthTable) {
     const keyLength = (table.keys().next().value as string).length;
     const resolvers = getResolverFunctions(keyLength);
-    for (const [key, value] of Array.from(table.entries())) {
+    for (const [key, value] of table.entries()) {
         if (value === UNKNOWN) {
             // replaced by removeIrrelevantLeafNodes()
             continue;
@@ -59,7 +59,7 @@ describe('packed-bdd.test.ts', () => {
         });
         it('should use wider arrays when needed', () => {
             const table = exampleTruthTable(5);
-            for (const key of Array.from(table.keys())) {
+            for (const key of table.keys()) {
                 table.set(key, table.get(key) as number + 1000);
             }
             const bdd = createBddFromTruthTable(table);
@@ -68,7 +68,7 @@ describe('packed-bdd.test.ts', () => {
             assert.ok(packed instanceof Uint16Array);
             assertResolvesTable(packed, table);
 
-            for (const key of Array.from(table.keys())) {
+            for (const key of table.keys()) {
                 table.set(key, table.get(key) as number + 100000);
             }
             const bdd32 = createBddFromTruthTable(table);

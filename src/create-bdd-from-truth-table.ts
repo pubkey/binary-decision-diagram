@@ -17,7 +17,7 @@ export function createBddFromTruthTable(
     }
 
 
-    truthTable.forEach((value, stateSet) => {
+    for (const [stateSet, value] of truthTable) {
         let lastNode: NonLeafNode = root;
 
         // itterate over each char of the state
@@ -53,7 +53,7 @@ export function createBddFromTruthTable(
                 lastNode,
             )
         );
-    });
+    }
 
     return root;
 }

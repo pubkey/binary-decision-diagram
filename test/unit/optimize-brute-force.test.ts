@@ -35,7 +35,7 @@ describe('optimize-brute-force.test.ts', () => {
         // console.log(minimizedBdd.countNodes() + '  -  ' + resortedBdd.countNodes());
         const resolvers = getResolverFunctions(depth, false);
 
-        for (const [key, value] of Array.from(truthTable.entries())) {
+        for (const [key, value] of truthTable.entries()) {
             const bddValue = bdd.resolve(resolvers, key);
             const resortedBddValue = resortedBdd.resolve(resolvers, key);
             const minimizedBddValue = minimizedBdd.resolve(resolvers, key);
@@ -79,7 +79,7 @@ describe('optimize-brute-force.test.ts', () => {
         );
 
         const resolvers = getResolverFunctions(depth, false);
-        for (const [key, value] of Array.from(truthTable.entries())) {
+        for (const [key, value] of truthTable.entries()) {
             const bddValue = bdd.resolve(resolvers, key);
             const minimizedBddValue = minimizedBdd.resolve(resolvers, key);
             const resortedBddValue = resortedBdd.resolve(resolvers, key);

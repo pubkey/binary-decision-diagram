@@ -73,7 +73,7 @@ export function randomUnknownTable(
     stateLength: number = 3
 ): TruthTable {
     const table = exampleTruthTable(stateLength);
-    for (const [key, value] of Array.from(table.entries())) {
+    for (const [key, value] of table.entries()) {
         if (randomBoolean()) {
             table.set(key, UNKNOWN);
         }
