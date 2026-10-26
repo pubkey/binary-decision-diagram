@@ -3,6 +3,7 @@
 ## Unreleased
 
 - FIX the ES module build (`dist/esm`) of 6.0.0 was compiled as CommonJS, so importing it as an ES module failed with `exports is not defined` and bundlers did not find its exports. A test now imports both builds.
+- FIX `packed-bdd.js` contained the `__values()` helper of the ES5 build, which bundlers cannot tree-shake, so it was bundled together with `resolveWithPackedBdd()`. A test checks that the packed modules contain no compiler helpers.
 
 ## 6.0.0
 

@@ -37,12 +37,14 @@ export function bddToPackedBdd(bdd: RootNode): PackedBdd {
     const idByNode = new Map<AbstractNode, number>([[bdd, 0]]);
     for (let i = 0; i < nonLeafNodes.length; i++) {
         const branches = branchesOf(nonLeafNodes[i]);
-        for (const child of [branches.getBranch('0'), branches.getBranch('1')]) {
+        // forEach instead of for...of, so that this module needs no __values() helper in ES5.
+        // That helper cannot be tree-shaken and would be bundled with resolveWithPackedBdd().
+        [branches.getBranch('0'), branches.getBranch('1')].forEach(child => {
             if (!child.isLeafNode() && !idByNode.has(child)) {
                 idByNode.set(child, nonLeafNodes.length);
                 nonLeafNodes.push(child);
             }
-        }
+        });
     }
 
     const n = nonLeafNodes.length;

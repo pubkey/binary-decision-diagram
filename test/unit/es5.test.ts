@@ -69,6 +69,18 @@ describe('es5.test.ts', () => {
             });
         });
     });
+    it('the packed BDD modules should contain no compiler helpers', () => {
+        /**
+         * They are bundled at runtime (for example by event-reduce-js).
+         * Top-level helpers like __values() cannot be tree-shaken by bundlers.
+         */
+        const files = jsFiles(path.join(esmDir, 'packed'));
+        assert.ok(files.length > 0);
+        files.forEach(file => {
+            const helpers = fs.readFileSync(file, 'utf8').match(/var __[a-zA-Z]+ =/g);
+            assert.strictEqual(helpers, null, path.relative(esmDir, file) + ' contains ' + helpers);
+        });
+    });
     it('the ES module build should be importable as an ES module', () => {
         /**
          * Compiled with the ES5 target and no module option, TypeScript
